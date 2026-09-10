@@ -1,0 +1,29 @@
+{
+  "rules": {
+    "users": {
+      ".read": true,
+      ".write": true,
+      ".indexOn": ["username", "phone", "gameUid", "referralCode", "email", "totalEarnings"]
+    },
+    "userMatches": { ".read": true, ".write": true },
+    "userAchievements": { ".read": true, ".write": true },
+    "userNotifications": { ".read": true, ".write": true },
+    "userReferrals": { ".read": true, ".write": true },
+    "userTransactions": { ".read": true, ".write": true },
+    "tournaments": { ".read": true, ".write": true },
+    "transactions": { ".read": true, ".write": true },
+    "appSettings": { ".read": true, ".write": true },
+    "paymentSettings": { ".read": true, ".write": true },
+    "adminRoles": { ".read": true, ".write": true },
+    "banners": { ".read": true, ".write": true },
+    "notifications": { ".read": true, ".write": true },
+    "owner": { ".read": true, ".write": true },
+    "dummy": { ".read": true, ".write": true },
+    "announcements": { ".read": true, ".write": true },
+    "popups": { ".read": true, ".write": true },
+    "pinResetRequests": { ".read": true, ".write": true },
+    "teams": { ".read": true, ".write": true },
+    "teamChats": { ".read": true, ".write": true },
+    "teamInvites": { ".read": true, ".write": true }
+  }
+}

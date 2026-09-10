@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Device Offline</title>
+  <style type="text/css"> 
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    
+    :root { 
+      --bg-color: #f9fafb; 
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --card-bg: rgba(255, 255, 255, 0.8);
+      --card-border: rgba(0, 0, 0, 0.05);
+      --primary: #eab308; 
+      --primary-hover: #ca8a04;
+      --accent-glow: rgba(234, 179, 8, 0.2);
+    }
+    
+    [data-theme="dark"] { 
+      --bg-color: #000000; 
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --card-bg: rgba(20, 20, 20, 0.8);
+      --card-border: rgba(255, 255, 255, 0.05);
+      --primary: #eab308; 
+      --primary-hover: #facc15;
+      --accent-glow: rgba(234, 179, 8, 0.15);
+    }
+    
+    html, body { 
+      background-color: var(--bg-color); 
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100vh;
+      font-family: 'Inter', Arial, sans-serif; 
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      transition: background-color 0.4s ease;
+    } 
+
+    .glow-bg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 250px;
+      height: 250px;
+      background: var(--accent-glow);
+      filter: blur(80px);
+      border-radius: 50%;
+      z-index: 0;
+      animation: pulse 4s infinite alternate ease-in-out;
+    }
+
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
+      100% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+    }
+    
+    .container { 
+      position: relative;
+      z-index: 1;
+      text-align: center; 
+      padding: 40px 30px;
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 32px;
+      width: 80%;
+      max-width: 340px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      animation: floatUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      opacity: 0;
+      transform: translateY(20px);
+    } 
+
+    @keyframes floatUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    #logo {
+      margin-bottom: 24px;
+      position: relative;
+      display: inline-block;
+    }
+
+    #logo svg {
+      width: 70px;
+      height: 70px;
+      color: var(--primary);
+      filter: drop-shadow(0 0 10px var(--accent-glow));
+    }
+
+    .icon-bounce {
+      animation: bounce 2s infinite ease-in-out;
+    }
+
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    
+    h1 {
+      color: var(--text-main);
+      font-weight: 800;
+      font-size: 22px;
+      margin: 0 0 10px 0;
+      letter-spacing: -0.5px;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 0 0 32px 0;
+    }
+    
+    button { 
+      background-color: var(--primary);
+      color: #000;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 16px 32px; 
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3);
+    }
+
+    button:active {
+      transform: scale(0.96);
+      background-color: var(--primary-hover);
+      box-shadow: 0 2px 8px rgba(234, 179, 8, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="glow-bg"></div>
+  <div class="container">
+    <div id="logo" class="icon-bounce">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0" />
+      </svg>
+    </div>
+    <div id="message">
+      <h1>No Connection</h1>
+      <p>It seems you are offline.<br/>Please check your internet and try again.</p>
+    </div>
+    <button id="retryButton" type="button" onclick="gonative.webview.reload()">Try Again</button>
+  </div>
+  <script>
+    var messageDiv = document.getElementById('message');
+    var retryButton = document.getElementById('retryButton');
+    
+    if (['ko', 'ko-kr', 'ko-kp'].indexOf(navigator.language.toLowerCase()) > -1) {
+      messageDiv.innerHTML = '<h1>연결 끊김</h1><p>인터넷 연결이 끊겼습니다.<br/>연결을 확인하고 다시 시도하세요.</p>';
+      retryButton.innerText = '다시 시도';
+    }
+    
+    function updateDarkMode(){
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+      else {
+        document.documentElement.setAttribute("data-theme", "light");
+      } 
+    }
+    updateDarkMode();
+    if(window.matchMedia){
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateDarkMode);
+    }
+  </script>
+</body>
+</html>
