@@ -4,14 +4,17 @@
 export const isMedianApp = (): boolean => {
   if (typeof window === 'undefined') return false;
 
-  // Allow bypass for admin route, local development or bypass query param
-  const isDev = window.location.hostname === 'localhost' || window.location.hostname.includes('ais-dev');
+  // Allow bypass for iframe preview, admin route, local development or bypass query param
+  const isIframe = typeof window !== 'undefined' && window.self !== window.top;
+  const host = window.location.hostname || '';
+  const isDev = isIframe || host === 'localhost' || host.includes('run.app') || host.includes('google') || host.includes('ais-') || host.includes('127.0.0.1');
   const isAdminRoute = window.location.pathname.startsWith('/admin');
-  const hasBypassParam = new URLSearchParams(window.location.search).get('access') === 'admin';
-  const hasBypassStorage = sessionStorage.getItem('admin_bypass_verified') === 'true';
+  const search = window.location.search || '';
+  const hasAppParam = search.includes('app=pkarena') || search.includes('access=admin') || search.includes('platform=apk');
+  const hasBypassStorage = sessionStorage.getItem('app_verified') === 'true' || sessionStorage.getItem('admin_bypass_verified') === 'true';
 
-  if (hasBypassParam) {
-    sessionStorage.setItem('admin_bypass_verified', 'true');
+  if (hasAppParam) {
+    sessionStorage.setItem('app_verified', 'true');
     return true;
   }
 
@@ -21,14 +24,14 @@ export const isMedianApp = (): boolean => {
 
   const ua = (navigator.userAgent || navigator.vendor || (window as any).opera || '').toLowerCase();
 
-  // Desktop PC checks
-  const isWindowsPC = ua.includes('windows nt');
-  const isMacDesktop = ua.includes('macintosh') && !('ontouchend' in document) && navigator.maxTouchPoints <= 1;
-  const isLinuxDesktop = ua.includes('x11') && !ua.includes('android');
-  const isDesktop = (isWindowsPC || isMacDesktop || isLinuxDesktop) && !ua.includes('android') && !ua.includes('mobile');
+  // 1. Median.co & GoNative identifiers
+  const isMedianUserAgent = ua.includes('median') || ua.includes('gonative') || ua.includes('pkarena') || ua.includes('pk_arena');
+  const isMedianWindowObject = Boolean((window as any).median || (window as any).gonative);
 
-  // Mobile / APK / Median / Android checks
-  const isMobileOrApp = ua.includes('android') || ua.includes('mobile') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('median') || ua.includes('gonative') || ua.includes('wv') || Boolean((window as any).median || (window as any).gonative);
+  // 2. Android WebView & iOS WKWebView
+  const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
+  const isIOSWebView = /(iphone|ipod|ipad).*applewebkit(?!.*safari)/i.test(navigator.userAgent);
 
-  return !isDesktop && isMobileOrApp;
+  return isMedianUserAgent || isMedianWindowObject || isAndroidWebView || isIOSWebView;
 };
+

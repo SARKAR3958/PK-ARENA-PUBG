@@ -60,25 +60,6 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-
-    // Server-level browser check
-    app.use((req, res, next) => {
-      if (req.path.startsWith('/api') || req.path.startsWith('/admin') || req.query.access === 'admin') {
-        return next();
-      }
-      const ua = (req.headers['user-agent'] || '').toLowerCase();
-      const isWindowsPC = ua.includes('windows nt');
-      const isMacDesktop = ua.includes('macintosh');
-      const isLinuxDesktop = ua.includes('x11') && !ua.includes('android');
-      const isDesktop = (isWindowsPC || isMacDesktop || isLinuxDesktop) && !ua.includes('android') && !ua.includes('mobile');
-      const isMobileOrApp = ua.includes('android') || ua.includes('mobile') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('median') || ua.includes('gonative') || ua.includes('wv');
-
-      if (isDesktop || !isMobileOrApp) {
-        return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="background:#0e0e10;color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;padding:20px;text-align:center;"><h1 style="font-size:32px;margin:0 0 8px 0;letter-spacing:2px;color:#ff4444;">404 | ACCESS DENIED</h1><p style="color:#888;font-size:14px;max-width:360px;">This server resource cannot be accessed directly from desktop web browsers. Please launch the official APK mobile application.</p><div style="margin-top:20px;font-size:11px;color:#555;border-top:1px solid #222;padding-top:10px;">ERR_RESTRICTED_CLIENT_PLATFORM</div></body></html>');
-      }
-      next();
-    });
-
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
