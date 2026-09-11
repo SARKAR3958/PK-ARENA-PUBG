@@ -16,6 +16,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { OnboardingModal } from './components/OnboardingModal';
 import { useApp } from './context/AppContext';
 import { initOneSignal } from './lib/onesignal';
+import { initGlobalButtonSound } from './lib/sound';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PK_LOGO_IMAGE } from './lib/assets';
 import { isMedianApp } from './lib/deviceCheck';
@@ -31,6 +32,7 @@ export default function App() {
 
   useEffect(() => {
     initOneSignal();
+    const cleanupSounds = initGlobalButtonSound();
 
     // Disable pinch-to-zoom on mobile devices
     const handleTouchStart = (e: TouchEvent) => {
@@ -40,9 +42,13 @@ export default function App() {
     };
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
 
-    // Disable double-tap zoom
+    // Disable double-tap zoom safely without breaking inputs or scroll
     let lastTouchTime = 0;
     const handleTouchEnd = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('input, textarea, select, button, a, form')) {
+        return;
+      }
       const now = new Date().getTime();
       if (now - lastTouchTime <= 300) {
         e.preventDefault();
@@ -58,6 +64,7 @@ export default function App() {
     document.addEventListener('gesturestart', handleGestureStart, { passive: false });
 
     return () => {
+      cleanupSounds();
       document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('touchend', handleTouchEnd);
       document.removeEventListener('gesturestart', handleGestureStart);

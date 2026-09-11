@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Shield, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import toast from 'react-hot-toast';
+import { playWrongPinSound, playPinSuccessSound } from '../lib/sound';
 
 export const PinSetupModal = () => {
   const { currentUser, updateUserProfile, forcePinSetup, setForcePinSetup } = useApp();
@@ -39,6 +40,7 @@ export const PinSetupModal = () => {
       setStep(2);
     } else if (step === 2) {
       if (confirmPin !== pin) {
+        playWrongPinSound();
         toast.error('PINs do not match');
         return;
       }
@@ -81,6 +83,7 @@ export const PinSetupModal = () => {
         pinAttempts: 5,
         pinLockoutUntil: null
       });
+      playPinSuccessSound();
       toast.success('Security PIN set successfully!');
       if (forcePinSetup) setForcePinSetup(false);
     } catch (err: any) {

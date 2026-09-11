@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import toast from 'react-hot-toast';
 import { useApp } from '../context/AppContext';
 import { GoogleSignInHelperModal } from '../components/GoogleSignInHelperModal';
+import { stopAuthBgSound } from '../lib/sound';
 
 export function Register() {
   const [showPassword, setShowPassword] = useState(false);
@@ -28,6 +29,7 @@ export function Register() {
 
   useEffect(() => {
     if (currentUser) {
+      stopAuthBgSound();
       navigate('/home');
     }
   }, [currentUser, navigate]);
@@ -80,7 +82,8 @@ export function Register() {
 
     setIsLoading(true);
     try {
-      await registerManual(formData.email, formData.password, data);
+       await registerManual(formData.email, formData.password, data);
+       stopAuthBgSound();
     } catch (err: any) {
       toast.error(err.message || 'Registration failed');
     } finally {
@@ -101,6 +104,7 @@ export function Register() {
     setIsLoading(true);
     try {
       await signInWithGoogle();
+      stopAuthBgSound();
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/disallowed-useragent' || err.message?.includes('useragent') || err.message?.includes('disallowed')) {
@@ -117,6 +121,7 @@ export function Register() {
     setIsLoading(true);
     try {
       await signInWithGoogle();
+      stopAuthBgSound();
     } catch (err: any) {
       toast.error(err.message || 'Google signup failed');
     } finally {

@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 import { ref, get, update } from 'firebase/database';
 import { db } from '../lib/firebase';
 import { PK_COIN_ICON, EASYPAISA_LOGO, JAZZCASH_LOGO, SADAPAY_LOGO, NAYAPAY_LOGO, PK_LOGO_IMAGE } from '../lib/assets';
+import { playDepositSuccessSound, playWithdrawSuccessSound } from '../lib/sound';
 import successConfetti from '../assets/success-confetti.json';
 import pendingClock from '../assets/pending-clock.json';
 
@@ -139,6 +140,7 @@ export function Wallet() {
       await addTransaction(newTx);
       setDepositAmount(Number(amount));
       setShowDepositSuccessModal(true);
+      playDepositSuccessSound();
       setAmount('');
       setScreenshotBase64('');
     } catch (err: any) {
@@ -242,6 +244,7 @@ export function Wallet() {
       await addTransaction(newTx);
       setSuccessAmount(Number(amount));
       setShowSuccessModal(true);
+      playWithdrawSuccessSound();
       resetWithdrawInputs();
     } catch (err: any) {
       toast.error(err.message || 'Withdrawal request failed');
@@ -377,6 +380,7 @@ export function Wallet() {
         
         setPromoReward(reward);
         setShowPromoSuccessModal(true);
+        playDepositSuccessSound();
         setPromoCode('');
       } else {
         toast.error('Invalid or expired promo code.');

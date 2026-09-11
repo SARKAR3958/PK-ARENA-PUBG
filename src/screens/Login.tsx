@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useApp } from '../context/AppContext';
 import { PasswordResetModal } from '../components/PasswordResetModal';
 import { GoogleSignInHelperModal } from '../components/GoogleSignInHelperModal';
+import { stopAuthBgSound } from '../lib/sound';
 
 export function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +21,7 @@ export function Login() {
 
   useEffect(() => {
     if (currentUser) {
+      stopAuthBgSound();
       navigate('/home');
     }
   }, [currentUser, navigate]);
@@ -34,6 +36,7 @@ export function Login() {
     setIsLoading(true);
     try {
       await loginManual(email, password);
+      stopAuthBgSound();
     } catch (err: any) {
       toast.error(err.message || 'Login failed');
     } finally {
@@ -54,6 +57,7 @@ export function Login() {
     setIsLoading(true);
     try {
       await signInWithGoogle();
+      stopAuthBgSound();
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/disallowed-useragent' || err.message?.includes('useragent') || err.message?.includes('disallowed')) {

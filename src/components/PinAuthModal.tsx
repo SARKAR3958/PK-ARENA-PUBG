@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { ref, push, set } from 'firebase/database';
 import { db } from '../lib/firebase';
 import toast from 'react-hot-toast';
+import { playWrongPinSound, playPinSuccessSound, playButtonClickSound } from '../lib/sound';
 
 interface PinAuthModalProps {
   isOpen: boolean;
@@ -99,6 +100,8 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
   const handleKeyPress = (num: string) => {
     if (lockedUntil && lockedUntil > Date.now()) return;
     
+    playButtonClickSound();
+
     // If there was an error showing, typing a new digit starts fresh immediately
     if (error) {
       setError(false);
@@ -117,6 +120,7 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
   };
 
   const handleDelete = () => {
+    playButtonClickSound();
     if (error) {
       setError(false);
       setPin('');
@@ -128,11 +132,14 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
 
   const verifyPin = (enteredPin: string) => {
     if (enteredPin === currentUser?.appLockPin) {
-      // Instant success - reset pin & close modal immediately without waiting for server response
+      // Instant success - play chime, reset pin & close modal immediately
+      playPinSuccessSound();
       setPin('');
       onClose(true);
       updateUserProfile({ pinAttempts: 5, pinLockoutUntil: null, pinLastFailedAt: null }).catch(console.error);
     } else {
+      // Wrong PIN entered: trigger error buzzer sound & visual shake
+      playWrongPinSound();
       setError(true);
       // Instant reset of PIN so user can immediately type the next digit without lag
       setPin('');
@@ -209,6 +216,7 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
         selectedSport.toLowerCase() === currentUser?.securitySport?.toLowerCase();
 
       if (!isCorrect) {
+        playWrongPinSound();
         toast.error('Incorrect security selection! Answers do not match. Selections reset.');
         // Reset selections so user can retry security questions
         setSelectedColor('');
@@ -236,6 +244,7 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
       selectedSport.toLowerCase() === currentUser?.securitySport?.toLowerCase();
 
     if (!isCorrect) {
+      playWrongPinSound();
       toast.error('Incorrect security selection! Answers do not match. Selections reset.');
       resetForgotState();
       return;
@@ -483,6 +492,7 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
                 <button
                   key={num}
                   type="button"
+                  data-sound="none"
                   onPointerDown={(e) => {
                     e.preventDefault();
                     handleKeyPress(num.toString());
@@ -499,6 +509,7 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
               
               <button
                 type="button"
+                data-sound="none"
                 onPointerDown={(e) => {
                   e.preventDefault();
                   resetForgotState();
@@ -514,6 +525,7 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
               
               <button
                 type="button"
+                data-sound="none"
                 onPointerDown={(e) => {
                   e.preventDefault();
                   handleKeyPress('0');
@@ -529,6 +541,7 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
               
               <button
                 type="button"
+                data-sound="none"
                 onPointerDown={(e) => {
                   e.preventDefault();
                   handleDelete();

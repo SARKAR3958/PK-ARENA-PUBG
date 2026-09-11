@@ -11,16 +11,13 @@ import {
   CheckCircle2, 
   X, 
   Crown,
-  FileText,
   Eye,
   EyeOff,
   Menu,
   Search,
-  Bell,
   Power,
   ShieldCheck,
-  RefreshCw,
-  Clock
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ref, onValue, set, push, update, remove } from 'firebase/database';
@@ -69,7 +66,6 @@ export function OwnerDashboard() {
   // Firebase state
   const [adminRoles, setAdminRoles] = useState<AdminRole[]>([]);
   const [currentOwnerData, setCurrentOwnerData] = useState<{ key: string; deviceId?: string } | null>(null);
-  const [adminLogs, setAdminLogs] = useState<any[]>([]);
 
   // Modals state
   const [isCreateRoleModalOpen, setIsCreateRoleModalOpen] = useState(false);
@@ -123,7 +119,6 @@ export function OwnerDashboard() {
   const navItems = [
     { id: 'roles', label: 'Admin Roles', icon: Shield },
     { id: 'owner_key', label: 'Master Key', icon: Key },
-    { id: 'logs', label: 'Audit Logs', icon: FileText },
   ];
 
   // Sync with Firebase
@@ -156,25 +151,9 @@ export function OwnerDashboard() {
       }
     });
 
-    const logsRef = ref(db, 'adminLogs');
-    const unsubLogs = onValue(logsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const list = Object.entries(data).map(([id, val]: [string, any]) => ({
-          id,
-          ...val
-        }));
-        list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        setAdminLogs(list);
-      } else {
-        setAdminLogs([]);
-      }
-    });
-
     return () => {
       unsubRoles();
       unsubOwner();
-      unsubLogs();
     };
   }, []);
 
@@ -391,18 +370,6 @@ export function OwnerDashboard() {
       r => r.adminName?.toLowerCase().includes(term) || r.adminKey?.toLowerCase().includes(term)
     );
   }, [adminRoles, searchTerm]);
-
-  // Filtered Logs based on search
-  const filteredLogs = useMemo(() => {
-    if (!searchTerm.trim()) return adminLogs;
-    const term = searchTerm.toLowerCase();
-    return adminLogs.filter(
-      l => 
-        l.adminName?.toLowerCase().includes(term) || 
-        l.action?.toLowerCase().includes(term) || 
-        l.details?.toLowerCase().includes(term)
-    );
-  }, [adminLogs, searchTerm]);
 
   // If still checking auth
   if (isCheckingAuth) {
@@ -639,12 +606,6 @@ export function OwnerDashboard() {
               />
             </div>
             <div className="flex items-center space-x-2 md:space-x-4">
-              <div className="relative">
-                <Bell className="w-5 h-5 text-zinc-400 cursor-pointer hover:text-yellow-500" />
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center border-2 border-[#0a0a0a]">
-                  <span className="text-[8px] font-black text-black">{adminRoles.length}</span>
-                </div>
-              </div>
               <button 
                 onClick={handleLogout}
                 className="p-2 text-zinc-400 hover:text-red-500"
@@ -861,65 +822,6 @@ export function OwnerDashboard() {
                     <span>{isChangingKey ? 'Updating...' : 'Save & Update Master Key'}</span>
                   </button>
                 </form>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: AUDIT & ACTIVITY LOGS */}
-          {activeTab === 'logs' && (
-            <div className="space-y-6">
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 md:p-8 shadow-xl">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-3 bg-yellow-500/10 rounded-2xl text-yellow-500 border border-yellow-500/20">
-                      <FileText className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-base md:text-lg font-black uppercase tracking-wider text-white">
-                        Admin Activity Audit Trail
-                      </h2>
-                      <p className="text-xs text-zinc-500">
-                        Real-time records of actions taken by administrators
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="text-xs text-zinc-400 bg-zinc-950 px-3 py-1.5 rounded-xl border border-zinc-800 font-mono">
-                    {filteredLogs.length} Records
-                  </span>
-                </div>
-
-                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                  {filteredLogs.map((log, i) => (
-                    <div 
-                      key={log.id || i}
-                      className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-2"
-                    >
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs font-black text-yellow-400 uppercase tracking-wider">
-                            {log.adminName || 'Admin'}
-                          </span>
-                          <span className="text-[10px] bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded font-mono uppercase border border-zinc-800">
-                            {log.action || 'ACTION'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-300 mt-1">{log.details || log.message || 'Updated system data'}</p>
-                      </div>
-
-                      <div className="text-[10px] text-zinc-500 font-mono flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Recent'}</span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {filteredLogs.length === 0 && (
-                    <div className="py-16 text-center text-zinc-600 text-xs uppercase tracking-widest font-bold">
-                      No Audit Logs Recorded Yet
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           )}
