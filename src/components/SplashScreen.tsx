@@ -73,16 +73,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ isLoading }) => {
         >
           {/* Background Battlefield & Lighting Effects */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {/* Background Texture */}
+            {/* Splash Background with balanced visibility & blackish tactical atmosphere */}
             <img 
-              src="/lsbg.png" 
-              alt="Background" 
-              className="absolute inset-0 w-full h-full object-cover opacity-25 mix-blend-luminosity scale-105"
+              src="/splash-bg.png" 
+              alt="Splash Background" 
+              className="absolute inset-0 w-full h-full object-cover object-center scale-105 opacity-30"
             />
             
-            {/* Dark Tactical Vignette */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black via-black/75 to-black" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.95)_100%)]" />
+            {/* Blackish tactical vignette & shadow gradient */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/35 to-black/85" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.8)_100%)]" />
 
             {/* Diagonal Golden Streak Corner Flares */}
             <div className="absolute -top-12 -left-12 w-64 h-64 bg-gradient-to-br from-yellow-500/20 via-yellow-600/5 to-transparent rotate-45 blur-xl" />
@@ -91,7 +91,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ isLoading }) => {
             <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-gradient-to-tl from-yellow-500/25 via-yellow-600/5 to-transparent rotate-45 blur-xl" />
 
             {/* Center Core Glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] bg-yellow-500/10 blur-[120px] rounded-full pointer-events-none" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] bg-yellow-500/15 blur-[120px] rounded-full pointer-events-none" />
           </div>
 
           {/* 1. Top Section: WELCOME */}

@@ -17,9 +17,16 @@ import { useApp } from './context/AppContext';
 import { initOneSignal } from './lib/onesignal';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PK_LOGO_IMAGE } from './lib/assets';
+import { isMedianApp } from './lib/deviceCheck';
+import { AccessDenied404 } from './components/AccessDenied404';
 
 export default function App() {
   const { loading, appSettings, currentUser } = useApp();
+
+  // If opening in standard web browser (Chrome, Safari, PC etc.) without Median / WebView, show 404
+  if (!isMedianApp()) {
+    return <AccessDenied404 />;
+  }
 
   useEffect(() => {
     initOneSignal();
