@@ -21,16 +21,14 @@ export const isMedianApp = (): boolean => {
 
   const ua = (navigator.userAgent || navigator.vendor || (window as any).opera || '').toLowerCase();
 
-  // 1. Median.co & GoNative specific identifiers
-  const isMedianUserAgent = ua.includes('median') || ua.includes('gonative');
-  const isMedianWindowObject = Boolean((window as any).median || (window as any).gonative);
+  // Desktop PC checks
+  const isWindowsPC = ua.includes('windows nt');
+  const isMacDesktop = ua.includes('macintosh') && !('ontouchend' in document) && navigator.maxTouchPoints <= 1;
+  const isLinuxDesktop = ua.includes('x11') && !ua.includes('android');
+  const isDesktop = (isWindowsPC || isMacDesktop || isLinuxDesktop) && !ua.includes('android') && !ua.includes('mobile');
 
-  // 2. Android WebView & iOS WKWebView inside native wrapper
-  const isAndroidWebView = ua.includes('wv') || (ua.includes('android') && ua.includes('version/'));
-  const isIOSWebView = /(iphone|ipod|ipad).*applewebkit(?!.*safari)/i.test(navigator.userAgent);
+  // Mobile / APK / Median / Android checks
+  const isMobileOrApp = ua.includes('android') || ua.includes('mobile') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('median') || ua.includes('gonative') || ua.includes('wv') || Boolean((window as any).median || (window as any).gonative);
 
-  // 3. Custom Median App Identifier (can be configured in Median dashboard)
-  const isCustomApp = ua.includes('pkarena') || ua.includes('pk_arena');
-
-  return isMedianUserAgent || isMedianWindowObject || isAndroidWebView || isIOSWebView || isCustomApp;
+  return !isDesktop && isMobileOrApp;
 };
