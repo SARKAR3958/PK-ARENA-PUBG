@@ -11,6 +11,7 @@ import { Leaderboard } from './screens/Leaderboard';
 import { Teams } from './screens/Teams';
 import { SupportChat } from './screens/SupportChat';
 import { AdminDashboard } from './screens/AdminDashboard';
+import { OwnerDashboard } from './screens/OwnerDashboard';
 import { SplashScreen } from './components/SplashScreen';
 import { OnboardingModal } from './components/OnboardingModal';
 import { useApp } from './context/AppContext';
@@ -91,7 +92,7 @@ export default function App() {
   const isMaintenanceMode = appSettings?.isMaintenanceMode;
   const isAdmin = currentUser?.role === 'admin';
   const isLoginPage = window.location.pathname === '/' || window.location.pathname === '/register';
-  const isAdminPage = window.location.pathname.startsWith('/admin');
+  const isAdminPage = window.location.pathname.startsWith('/admin') || window.location.pathname.startsWith('/ownerpknew');
 
   if (isMaintenanceMode && !isAdmin && !isAdminPage) {
     return (
@@ -137,6 +138,7 @@ export default function App() {
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/ownerpknew" element={<OwnerDashboard />} />
         
         <Route element={<ProtectedRoute><Layout /><OnboardingModal /></ProtectedRoute>}>
           <Route path="/home" element={<Home />} />

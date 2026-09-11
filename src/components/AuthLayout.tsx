@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { GoldenParticlesBg } from './GoldenParticlesBg';
-import { PK_LOGO_IMAGE, SPLASH_BG_IMAGE } from '../lib/assets';
+import { PK_LOGO_IMAGE, LSBG_IMAGE } from '../lib/assets';
 
 export function AuthLayout({ children, title, subtitle }: { children: ReactNode, title?: string, subtitle?: string }) {
   return (
@@ -9,13 +9,13 @@ export function AuthLayout({ children, title, subtitle }: { children: ReactNode,
       {/* 100% Full-Screen Edge-to-Edge Background */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <img 
-          src={SPLASH_BG_IMAGE} 
+          src={LSBG_IMAGE} 
           alt="Battleground Background" 
-          className="w-full h-full object-cover object-center opacity-45 scale-105"
+          className="w-full h-full object-cover object-center opacity-60 scale-105"
         />
         {/* Gritty tactical dark vignette & gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black/95" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.9)_100%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/70 to-black/90" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.85)_100%)]" />
       </div>
 
       <GoldenParticlesBg />

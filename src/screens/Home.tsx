@@ -74,6 +74,33 @@ export function Home() {
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [settings, setSettings] = useState<any>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isMatchRegistrationClosed = (t: any): boolean => {
+    if (!t) return false;
+    const status = (t.status || '').toUpperCase();
+    if (status === 'LIVE' || status === 'COMPLETED' || status === 'STARTED' || status === 'CANCELLED') {
+      return true;
+    }
+    if (t.date && t.time) {
+      try {
+        const matchTime = new Date(`${t.date}T${t.time}`).getTime();
+        if (!isNaN(matchTime) && matchTime <= currentTime) {
+          return true;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return false;
+  };
 
   const banners = useMemo(() => {
     return contextBanners && contextBanners.length > 0 ? contextBanners : DEFAULT_BANNERS;
@@ -205,6 +232,11 @@ export function Home() {
     if (joined) {
       setRulesModalMode('room');
       setShowRulesModal(joined);
+      return;
+    }
+
+    if (isMatchRegistrationClosed(t)) {
+      toast.error('Registration is closed for this match!');
       return;
     }
     
@@ -784,16 +816,27 @@ export function Home() {
                 ) : (
                   <button 
                     onClick={(e) => handleJoinClick(e, tourney)} 
-                    disabled={tourney.spotsFilled >= tourney.spotsTotal && !joinedMatches.some(m => m.tournamentId === tourney.id)}
+                    disabled={
+                      !joinedMatches.some(m => m.tournamentId === tourney.id) &&
+                      (isMatchRegistrationClosed(tourney) || tourney.spotsFilled >= tourney.spotsTotal)
+                    }
                     className={`mt-auto w-full font-black py-3.5 rounded-xl text-xs uppercase tracking-[0.2em] transition-all font-extrabold ${
                       joinedMatches.some(m => m.tournamentId === tourney.id) 
                         ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/40 hover:bg-yellow-500/20 active:scale-[0.95] shadow-md shadow-yellow-500/5' 
-                        : tourney.spotsFilled >= tourney.spotsTotal 
-                          ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800'
-                          : 'bg-gradient-pk bg-gradient-pk-hover text-black shadow-lg shadow-yellow-500/20 active:scale-[0.95]'
+                        : isMatchRegistrationClosed(tourney)
+                          ? 'bg-red-500/10 text-red-500 border border-red-500/30 cursor-not-allowed shadow-none'
+                          : tourney.spotsFilled >= tourney.spotsTotal 
+                            ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800'
+                            : 'bg-gradient-pk bg-gradient-pk-hover text-black shadow-lg shadow-yellow-500/20 active:scale-[0.95]'
                     }`}
                   >
-                    {joinedMatches.some(m => m.tournamentId === tourney.id) ? t('ROOM DETAILS') : tourney.spotsFilled >= tourney.spotsTotal ? t('MATCH FULL') : t('JOIN MATCH')}
+                    {joinedMatches.some(m => m.tournamentId === tourney.id) 
+                      ? t('ROOM DETAILS') 
+                      : isMatchRegistrationClosed(tourney)
+                        ? t('REGISTRATION CLOSED')
+                        : tourney.spotsFilled >= tourney.spotsTotal 
+                          ? t('MATCH FULL') 
+                          : t('JOIN MATCH')}
                   </button>
                 )}
                 <div className="flex gap-2 mt-2 w-full">
@@ -820,8 +863,7 @@ export function Home() {
         )}
       </motion.div>
 
-{document.getElementById('modal-root') ? createPortal((<>
-            {/* Prize Distribution Modal */}
+      {/* Prize Distribution Modal */}
       <AnimatePresence>
         {viewingPrizeDistribution && (
           <motion.div
@@ -1140,549 +1182,13 @@ export function Home() {
                 >
                   View Match Rules
                 </button>
-                ) : (
+                ) : isMatchRegistrationClosed(viewingPlayersTournament) ? (
                   <button 
-                  onClick={() => {
-                    const t = viewingPlayersTournament;
-                    setViewingPlayersTournament(null);
-                    setSelectedTournament(t);
-                    setSelectedSlot(null);
-                  }}
-                  className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-colors"
-                >
-                  Join This Match
-                </button>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Join Modal */}
-      <AnimatePresence>
-        {selectedTournament && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 pb-20 pt-4 bg-black/80 "
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-950 border border-yellow-900/50 rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[calc(100dvh-140px)]"
-            >
-              <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900 shrink-0">
-                <h3 className="text-sm font-bold text-yellow-500 flex items-center uppercase">{selectedTournament.title}</h3>
-                <button onClick={() => setSelectedTournament(null)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              
-              <div className="p-4 flex-1 overflow-y-auto space-y-4">
-                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex items-start">
-                  <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mr-2 mt-0.5" />
-                  <div>
-                    <h4 className="text-[10px] font-bold text-orange-500 uppercase mb-0.5">Tournament Rules</h4>
-                    <div className="text-[10px] text-zinc-300 leading-relaxed space-y-1">
-                      {selectedTournament.rules ? (
-                        selectedTournament.rules.split('\n').filter((r: string) => r.trim()).map((rule: string, idx: number) => (
-                          <div key={idx} className="flex items-start">
-                            <span className="text-yellow-500 mr-1.5">•</span>
-                            <span>{rule}</span>
-                          </div>
-                        ))
-                      ) : (
-                        <p>Make sure you have the correct game ID. Do not use hacks or third-party apps. Any violation will result in an instant ban without refund.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="text-xs font-bold text-white uppercase mb-2">Select Your Slot</h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Array.from({ length: selectedTournament.spotsTotal }).map((_, i) => {
-                      const slotNo = i + 1;
-                      const isOccupied = slotNo <= selectedTournament.spotsFilled;
-                      return (
-                        <button
-                          key={slotNo}
-                          disabled={isOccupied}
-                          onClick={() => setSelectedSlot(slotNo)}
-                          className={`py-2 rounded-lg text-xs font-bold transition-colors ${
-                            isOccupied 
-                              ? 'bg-zinc-900 border border-zinc-800 text-zinc-600 cursor-not-allowed' 
-                              : selectedSlot === slotNo 
-                                ? 'bg-yellow-500 text-black border border-yellow-500' 
-                                : 'bg-pk-card border border-pk-border text-zinc-400 hover:border-yellow-500/50'
-                          }`}
-                        >
-                          {slotNo}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 border-t border-zinc-800 bg-zinc-900 flex justify-end">
-                <button 
-                  onClick={handleConfirmEntry}
-                  disabled={isJoining}
-                  className="w-full bg-gradient-pk bg-gradient-pk-hover text-black font-bold py-3 rounded-xl text-sm uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isJoining ? 'PROCESSING...' : `CONFIRM ENTRY (PKR ${selectedTournament.entryFee})`}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Team Details Modal */}
-      <AnimatePresence>
-        {showTeamModal && selectedTournament && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-center justify-center p-4 pb-20 pt-4 bg-black/80"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-950 border border-yellow-900/50 rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[calc(100dvh-100px)] shadow-[0_0_50px_rgba(234,179,8,0.1)]"
-            >
-              <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900 shrink-0">
-                <div>
-                  <h3 className="text-sm font-black text-yellow-500 uppercase tracking-tight flex items-center">
-                    <Users className="w-4 h-4 mr-2" /> Team Details ({selectedTournament.mode})
-                  </h3>
-                </div>
-                <button onClick={() => setShowTeamModal(false)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              
-              <div className="p-4 flex-1 overflow-y-auto space-y-4 custom-scrollbar">
-                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex items-start">
-                  <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mr-2 mt-0.5" />
-                  <div>
-                    <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-0.5">Warning</h4>
-                    <p className="text-[10px] text-zinc-300 leading-relaxed font-medium">
-                      enter your real teammate ign and id otherwise random will kick from room
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {/* Leader (Current User) - Editable, 1 input per row */}
-                  <div className="bg-zinc-900/50 border border-yellow-500/20 rounded-xl p-3.5 relative overflow-hidden space-y-3">
-                    <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[8px] font-black px-2.5 py-1 rounded-bl-lg uppercase tracking-widest">
-                      Leader (You)
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-black text-yellow-500 uppercase tracking-widest mb-1">Leader In-Game Name (IGN)</label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter your IGN..."
-                        value={leaderInGameName} 
-                        onChange={(e) => setLeaderInGameName(e.target.value)}
-                        className="w-full bg-zinc-900 border border-yellow-500/40 rounded-xl px-3.5 py-3 text-xs text-white font-bold focus:outline-none focus:border-yellow-500 transition-colors placeholder:text-zinc-600 shadow-inner" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-black text-yellow-500 uppercase tracking-widest mb-1">Leader Character ID (UID)</label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter your Character ID..."
-                        value={leaderGameUid} 
-                        onChange={(e) => setLeaderGameUid(e.target.value)}
-                        className="w-full bg-zinc-900 border border-yellow-500/40 rounded-xl px-3.5 py-3 text-xs text-white font-bold focus:outline-none focus:border-yellow-500 transition-colors placeholder:text-zinc-600 shadow-inner" 
-                      />
-                    </div>
-                  </div>
-
-                  {/* Teammates - 1 input per row */}
-                  {teamMembers.map((member, idx) => (
-                    <div key={idx} className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-3.5 relative space-y-3">
-                      <div className="absolute top-0 right-0 bg-zinc-800 text-zinc-400 text-[8px] font-black px-2 py-1 rounded-bl-lg uppercase tracking-widest">
-                        Teammate {idx + 1}
-                      </div>
-                      <div>
-                        <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Teammate {idx + 1} In-Game Name (IGN)</label>
-                        <input 
-                          type="text" 
-                          placeholder="Teammate IGN..."
-                          value={member.inGameName} 
-                          onChange={(e) => {
-                            const newMembers = [...teamMembers];
-                            newMembers[idx].inGameName = e.target.value;
-                            setTeamMembers(newMembers);
-                          }}
-                          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3.5 py-3 text-xs text-white font-bold focus:outline-none focus:border-yellow-500 transition-colors placeholder:text-zinc-600" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1">Teammate {idx + 1} Character ID (UID)</label>
-                        <input 
-                          type="text"
-                          placeholder="Teammate Character ID..." 
-                          value={member.gameUid} 
-                          onChange={(e) => {
-                            const newMembers = [...teamMembers];
-                            newMembers[idx].gameUid = e.target.value;
-                            setTeamMembers(newMembers);
-                          }}
-                          className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3.5 py-3 text-xs text-white font-bold focus:outline-none focus:border-yellow-500 transition-colors placeholder:text-zinc-600" 
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 border-t border-zinc-800 bg-zinc-900 flex justify-end">
-                <button 
-                  onClick={() => {
-                    const isIncomplete = teamMembers.some(m => !m.inGameName.trim() || !m.gameUid.trim());
-                    if (isIncomplete) {
-                      toast.error('Please fill in all teammate details');
-                      return;
-                    }
-                    executeJoinMatch(teamMembers);
-                  }}
-                  disabled={isJoining}
-                  className="w-full bg-gradient-pk bg-gradient-pk-hover text-black font-black py-3 rounded-xl text-sm uppercase tracking-widest shadow-[0_0_20px_rgba(234,179,8,0.2)] disabled:opacity-50"
-                >
-                  {isJoining ? 'PROCESSING...' : 'JOIN MATCH'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-</>), document.getElementById('modal-root')!) : (<>
-            {/* Prize Distribution Modal */}
-      <AnimatePresence>
-        {viewingPrizeDistribution && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-            onClick={() => setViewingPrizeDistribution(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl overflow-hidden relative"
-            >
-              <div className="relative w-full rounded-2xl overflow-hidden mb-6 border border-zinc-800 bg-zinc-900 shadow-xl">
-                <img src={viewingPrizeDistribution.image || '/match-card.png'} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-40" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
-                <div className="relative p-4 flex justify-between items-center min-h-[110px]">
-                  <div className="z-10 flex flex-col justify-center max-w-[60%]">
-                    <h2 className="text-xl sm:text-2xl font-black text-[#F2C94C] uppercase tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">PUBG LEGENDS</h2>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-1.5 space-y-1 sm:space-y-0">
-                      <div className="flex items-center text-white text-[11px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
-                        <MapPin className="w-3.5 h-3.5 text-yellow-400 mr-1 shrink-0" />
-                        Map: {viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}
-                      </div>
-                      <div className="flex items-center text-white text-[11px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
-                        <Gamepad2 className="w-3.5 h-3.5 text-green-400 mr-1 shrink-0" />
-                        Mode: {viewingPrizeDistribution.mode}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="absolute right-0 bottom-0 h-[88%] z-0 pointer-events-none origin-bottom flex items-end justify-end pr-1">
-                    <img src="/character-box.png" alt="Character" className="h-full object-contain object-bottom max-w-[125px] drop-shadow-lg" />
-                  </div>
-
-                  <button
-                    onClick={() => setViewingPrizeDistribution(null)}
-                    className="absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors backdrop-blur-sm"
+                    disabled
+                    className="w-full bg-red-500/10 text-red-500 border border-red-500/30 font-bold py-3 rounded-xl text-xs uppercase tracking-widest cursor-not-allowed"
                   >
-                    <X className="w-4 h-4" />
+                    {t('REGISTRATION CLOSED')}
                   </button>
-                </div>
-              </div>
-
-              <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1 scrollbar-hide" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                
-                {/* Details Section */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-1.5">
-                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("ENTRY")}</div>
-                        <div className="text-sm font-black text-white flex items-center gap-1">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
-                           {viewingPrizeDistribution.entryFee}
-                        </div>
-                     </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PER KILL")}</div>
-                        <div className="text-sm font-black text-white flex items-center gap-1">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
-                           {viewingPrizeDistribution.perKill || 0}
-                        </div>
-                     </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PRIZE")}</div>
-                        <div className="text-sm font-black text-white flex items-center gap-1">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
-                           {viewingPrizeDistribution.prizePool}
-                        </div>
-                     </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-1.5">
-                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("MAP")}</div>
-                        <div className="text-sm font-black text-white truncate w-full">{viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}</div>
-                     </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("DATE")}</div>
-                        <div className="text-sm font-black text-white truncate w-full">{formatDateShort(viewingPrizeDistribution.date)}</div>
-                     </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("TIME")}</div>
-                        <div className="text-sm font-black text-white truncate w-full">{formatTimeAMPM(viewingPrizeDistribution.time)}</div>
-                     </div>
-                  </div>
-
-                  <div>
-                     <div className="flex justify-between items-center mb-1.5">
-                       <span className="text-[7px] text-zinc-500 font-black uppercase tracking-widest">{t("Slots Progress")}</span>
-                       <span className="text-[8px] font-black text-white">
-                         <span className="text-yellow-500">{viewingPrizeDistribution.spotsFilled}</span> / {viewingPrizeDistribution.spotsTotal}
-                       </span>
-                     </div>
-                     <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
-                       <div className="h-full bg-yellow-500 rounded-full" style={{ width: `${Math.min(100, ((viewingPrizeDistribution.spotsFilled || 0) / (viewingPrizeDistribution.spotsTotal || 1)) * 100)}%` }} />
-                     </div>
-                     <div className="flex justify-between items-center mt-1.5">
-                       <span className="text-[7px] text-zinc-500 font-black uppercase tracking-widest">
-                         {Math.max(0, viewingPrizeDistribution.spotsTotal - viewingPrizeDistribution.spotsFilled)} {t("Slots Left")}
-                       </span>
-                       <span className="text-[7px] text-zinc-500 font-black uppercase tracking-widest">
-                         {Math.round(Math.min(100, ((viewingPrizeDistribution.spotsFilled || 0) / (viewingPrizeDistribution.spotsTotal || 1)) * 100))}% {t("Full")}
-                       </span>
-                     </div>
-                  </div>
-                </div>
-
-                <div className="h-px bg-zinc-800/50 w-full" />
-                
-                <div>
-                  <h3 className="text-xs font-black text-yellow-500 uppercase tracking-widest mb-3">Prize Distribution</h3>
-                {viewingPrizeDistribution.prizeDistribution && viewingPrizeDistribution.prizeDistribution.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-2">
-                    {viewingPrizeDistribution.prizeDistribution.map((pd: any, idx: number) => (
-                      <div key={idx} className="bg-zinc-900 rounded-xl p-3 border border-zinc-800 flex flex-col items-center justify-center text-center">
-                        <div className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-1">
-                          Top {pd.rank}
-                        </div>
-                        <div className="text-xs font-black text-yellow-500 flex items-center gap-0.5">
-                          <img src={PK_COIN_ICON} alt="coin" className="w-3 h-3" />
-                          {pd.prize}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Trophy className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
-                    <p className="text-zinc-500 text-sm font-semibold">No prize distribution specified.</p>
-                  </div>
-                )}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Rules / Room Info Modal */}
-      <AnimatePresence>
-        {showRulesModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 pb-20 pt-4 bg-black/80 "
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-950 border border-yellow-900/50 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[calc(100dvh-140px)]"
-            >
-              <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900 shrink-0">
-                <h3 className="text-sm font-bold text-yellow-500 flex items-center uppercase tracking-tight">
-                  <AlertTriangle className="w-4 h-4 mr-2" /> Match Rules & Room
-                </h3>
-                <button onClick={() => setShowRulesModal(null)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-hide">
-                {rulesModalMode === 'room' && (
-                <div className="bg-yellow-500/5 border border-yellow-500/10 rounded-xl p-4">
-                  <div className="text-[10px] text-yellow-500/60 uppercase font-bold mb-3 flex items-center tracking-widest">
-                    <div className="w-1 h-1 bg-yellow-500 rounded-full mr-2" /> Room Credentials
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Room ID</div>
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm font-mono font-bold text-white tracking-wider">{ (tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).roomId || 'WAITING...' }</div>
-                        { (tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).roomId && (tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).roomId !== 'WAITING...' && (
-                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText((tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).roomId); toast.success('Room ID copied!'); }} className="text-zinc-500 hover:text-white"><Copy className="w-3 h-3" /></button>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Password</div>
-                      <div className="flex items-center space-x-2">
-                        <div className="text-sm font-mono font-bold text-white tracking-wider">{ (tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).password || 'WAITING...' }</div>
-                        { (tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).password && (tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).password !== 'WAITING...' && (
-                          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigator.clipboard.writeText((tournaments.find(t => t.id === showRulesModal.tournamentId) || showRulesModal).password); toast.success('Password copied!'); }} className="text-zinc-500 hover:text-white"><Copy className="w-3 h-3" /></button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-[9px] text-zinc-500 italic">* Room ID & Pass will be updated 10 mins before match start.</p>
-                </div>
-                )}
-
-                <div className="space-y-2.5">
-                  <div className="text-[10px] text-zinc-400 uppercase font-bold mb-1 tracking-widest">Important Rules</div>
-                  {(() => {
-                    const tourney = tournaments.find(t => t.id === showRulesModal.tournamentId || t.id === showRulesModal.id) || showRulesModal;
-                    const rules = tourney.rules || '';
-                    const rulesList = rules.split('\n').filter((r: string) => r.trim());
-                    
-                    if (rulesList.length > 0) {
-                      return rulesList.map((rule: string, idx: number) => (
-                        <div key={idx} className="flex items-start space-x-2">
-                          <div className="w-1 h-1 bg-yellow-500 rounded-full mt-1.5 shrink-0" />
-                          <p className="text-[10px] text-zinc-300 leading-relaxed">{rule}</p>
-                        </div>
-                      ));
-                    }
-                    
-                    return (
-                      <>
-                        <div className="flex items-start space-x-2">
-                          <div className="w-1 h-1 bg-yellow-500 rounded-full mt-1.5 shrink-0" />
-                          <p className="text-[10px] text-zinc-300 leading-relaxed">Emulators are strictly prohibited. Using them will result in a ban without refund.</p>
-                        </div>
-                        <div className="flex items-start space-x-2">
-                          <div className="w-1 h-1 bg-yellow-500 rounded-full mt-1.5 shrink-0" />
-                          <p className="text-[10px] text-zinc-300 leading-relaxed">Team up in solo matches is not allowed. All players involved will be disqualified.</p>
-                        </div>
-                        <div className="flex items-start space-x-2">
-                          <div className="w-1 h-1 bg-yellow-500 rounded-full mt-1.5 shrink-0" />
-                          <p className="text-[10px] text-zinc-300 leading-relaxed">Ensure your in-game name matches exactly with your profile name.</p>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-              <div className="p-4 border-t border-zinc-800 bg-zinc-900">
-                <button 
-                  onClick={() => setShowRulesModal(null)}
-                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-colors"
-                >
-                  GOT IT
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Joined Players Modal */}
-      <AnimatePresence>
-        {viewingPlayersTournament && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 pb-20 pt-4 bg-black/80 "
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-zinc-950 border border-yellow-900/50 rounded-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[calc(100dvh-140px)]"
-            >
-              <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900 shrink-0">
-                <h3 className="text-sm font-bold text-yellow-500 flex items-center uppercase tracking-tight">
-                  <User className="w-4 h-4 mr-2" /> Joined Players
-                </h3>
-                <button onClick={() => setViewingPlayersTournament(null)} className="text-zinc-400 hover:text-white"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-4 bg-zinc-900/50 border-b border-zinc-800">
-                <div className="text-[10px] text-zinc-400 uppercase font-bold mb-1">Match Details</div>
-                <div className="text-xs font-bold text-white">{viewingPlayersTournament.title}</div>
-
-                <div className="flex items-center mt-3 text-[10px] text-zinc-500 font-semibold">
-                  <span className="bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded mr-2 w-8 text-center">#</span>
-                  <span>IN-GAME NAME</span>
-                </div>
-              </div>
-              <div className="p-4 overflow-y-auto space-y-2 flex-1">
-                {isLoadingPlayers ? (
-                  <div className="text-center py-10 text-zinc-500 text-xs font-bold uppercase tracking-widest animate-pulse">Loading Players...</div>
-                ) : matchPlayers.length > 0 ? (
-                  matchPlayers.map((player, i) => (
-                    <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 flex items-center justify-between group hover:border-yellow-500/30 transition-colors">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center text-xs font-bold text-yellow-500 mr-3 border border-zinc-700 shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]">
-                          {player.slot}
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-black text-white group-hover:text-yellow-500 transition-colors uppercase tracking-tight">{player.inGameName || 'No Name'}</div>
-                        </div>
-                      </div>
-                      {viewingPlayersTournament.status === 'COMPLETED' ? (
-                         <div className="text-right">
-                           {player.rank ? (
-                             <div className="text-[10px] font-bold text-white">Rank <span className="text-yellow-500">#{player.rank}</span></div>
-                           ) : (
-                             <div className="text-[10px] text-zinc-500">No Rank</div>
-                           )}
-                           <div className="text-[9px] text-zinc-500">{player.kills || 0} Kills</div>
-                         </div>
-                      ) : (
-                         <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 opacity-50">
-                    <User className="w-12 h-12 text-zinc-800 mb-2" />
-                    <div className="text-zinc-500 font-bold text-sm">No players joined yet</div>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 border-t border-zinc-800 bg-zinc-900">
-                 {joinedMatches.some(m => m.tournamentId === viewingPlayersTournament.id) ? (
-                  <button 
-                  onClick={() => {
-                    const joined = joinedMatches.find(m => m.tournamentId === viewingPlayersTournament.id);
-                    setViewingPlayersTournament(null);
-                    setShowRulesModal(joined);
-                  }}
-                  className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-colors border border-zinc-700"
-                >
-                  View Match Rules
-                </button>
                 ) : (
                   <button 
                   onClick={() => {
@@ -1905,8 +1411,6 @@ export function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-
-</>)}
 
       {/* Announcements & News Full Screen View (Portaled to document.body so it always opens reliably) */}
       {typeof document !== 'undefined' && createPortal(

@@ -8,7 +8,7 @@ export const EASYPAISA_LOGO = '/easypaisa.png';
 export const JAZZCASH_LOGO = '/jazzcash.png';
 export const SADAPAY_LOGO = '/sadapay.png';
 export const NAYAPAY_LOGO = '/nayapay.png';
-export const LSBG_IMAGE = '/splash-bg.png';
+export const LSBG_IMAGE = '/LSBG.png';
 export const SPLASH_BG_IMAGE = '/splash-bg.png';
 export const SUPPORT_ICON = '/PK-LOGO.jpg';
 

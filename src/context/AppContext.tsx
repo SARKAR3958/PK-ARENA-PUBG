@@ -8,24 +8,7 @@ import { User, AppSettings, Tournament, Announcement, AppPopup } from '../types'
 import { PinAuthModal } from '../components/PinAuthModal';
 import { PinSetupModal } from '../components/PinSetupModal';
 import { DEFAULT_AVATAR, EASYPAISA_LOGO, JAZZCASH_LOGO, SADAPAY_LOGO, NAYAPAY_LOGO, PK_LOGO_IMAGE, PK_COIN_ICON } from '../lib/assets';
-
-// Image Caching/Preloading Utility
-const preloadAppAssets = () => {
-  const assets = [
-    PK_LOGO_IMAGE,
-    EASYPAISA_LOGO,
-    JAZZCASH_LOGO,
-    SADAPAY_LOGO,
-    NAYAPAY_LOGO,
-    PK_COIN_ICON
-  ];
-  assets.forEach(src => {
-    if (src) {
-      const img = new Image();
-      img.src = src;
-    }
-  });
-};
+import { preloadAllCoreAssets, preloadDynamicAssets } from '../lib/assetPreloader';
 
 interface Match {
   id: string;
@@ -329,6 +312,11 @@ const translations: Record<string, Record<string, string>> = {
     "English": "JOIN MATCH",
     "Roman Urdu": "MATCH JOIN KAREIN",
     "Urdu": "میچ جوائن کریں"
+  },
+  "REGISTRATION CLOSED": {
+    "English": "REGISTRATION CLOSED",
+    "Roman Urdu": "REGISTRATION CLOSED",
+    "Urdu": "رجسٹریشن بند ہے"
   },
   "Joined": {
     "English": "Joined",
@@ -957,7 +945,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    preloadAppAssets();
+    preloadAllCoreAssets();
     // Fetch App Settings
     const settingsRef = ref(db, 'appSettings');
     const unsubscribeSettings = onValue(settingsRef, (snapshot) => {
@@ -971,13 +959,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (data) {
         const list = Object.values(data).filter((b: any) => b.isActive);
         setBanners(list);
-        // Preload banner images to prevent mobile browser flicker
-        list.forEach((b: any) => {
-          if (b.imageUrl) {
-            const img = new Image();
-            img.src = b.imageUrl;
-          }
-        });
+        preloadDynamicAssets(list.map((b: any) => b.imageUrl));
       } else {
         setBanners([]);
       }
@@ -1029,7 +1011,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const unsubscribeTournaments = onValue(tourRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setTournaments(Object.values(data));
+        const tourList = Object.values(data) as Tournament[];
+        setTournaments(tourList);
+        preloadDynamicAssets(tourList.map((t) => t.image));
       } else {
         setTournaments([]);
       }
@@ -1044,6 +1028,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const usersList = Object.values(data) as User[];
         const sorted = usersList.sort((a, b) => (b.totalEarnings || 0) - (a.totalEarnings || 0));
         setLeaderboard(sorted);
+        preloadDynamicAssets(sorted.map((u) => u.avatarUrl || u.profilePicture));
       } else {
         setLeaderboard([]);
       }

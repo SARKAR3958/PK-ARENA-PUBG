@@ -2418,7 +2418,6 @@ export const AdminDashboard: React.FC = () => {
     { id: 'banners', label: 'Banners', icon: ImageIcon },
     { id: 'payment_settings', label: 'Payment Settings', icon: Sliders },
     { id: 'settings', label: 'App Settings', icon: Settings },
-    { id: 'roles', label: 'Admin Roles', icon: Shield },
     { id: 'themes', label: 'Themes', icon: Sliders },
     { id: 'pin_resets', label: 'PIN Resets', icon: Key },
   ];
@@ -5079,91 +5078,6 @@ export const AdminDashboard: React.FC = () => {
                    </button>
                  </div>
               </div>
-            ) : activeTab === 'roles' ? (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                   <div>
-                     <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider">Admin Roles & Permissions</h3>
-                     <p className="text-[10px] text-zinc-500 mt-1">Manage moderators and their access levels</p>
-                   </div>
-                   <button 
-                     onClick={() => setIsCreateRoleModalOpen(true)}
-                     className="bg-yellow-500 text-black px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-[0_0_20px_rgba(234,179,8,0.2)] flex items-center space-x-2"
-                   >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Create New Admin</span>
-                   </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {adminRoles.map((role, i) => (
-                    <div key={role.id || i} className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 flex flex-col relative overflow-hidden group">
-                       <div className="absolute top-0 right-0 p-4 flex gap-2">
-                          <button 
-                            onClick={() => {
-                                setEditingRole(role);
-                                setNewAdminRole(role);
-                                setIsCreateRoleModalOpen(true);
-                            }}
-                            className="p-2 bg-blue-500/10 text-blue-500 rounded-lg border border-blue-500/20 hover:bg-blue-500 hover:text-white transition-all"
-                          >
-                             <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={async () => {
-                              setConfirmModal({
-                                isOpen: true,
-                                title: 'Delete Admin Role',
-                                message: 'Are you sure you want to delete this admin role? This action cannot be undone.',
-                                type: 'danger',
-                                onConfirm: async () => {
-                                  await remove(ref(db, `adminRoles/${role.id}`));
-                                  toast.success('Role deleted');
-                                  setConfirmModal({ isOpen: false });
-                                }
-                              });
-                            }}
-                            className="p-2 bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
-                          >
-                             <Trash2 className="w-4 h-4" />
-                          </button>
-                       </div>
-                       
-                       <div className="flex items-center space-x-4 mb-6">
-                          <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center border border-yellow-500/20">
-                             <Shield className="w-6 h-6 text-yellow-500" />
-                          </div>
-                          <div>
-                             <h4 className="text-sm font-black text-white uppercase tracking-wider">{role.adminName}</h4>
-                             <p className="text-[10px] text-zinc-500 font-mono">Key: {role.adminKey}</p>
-                          </div>
-                       </div>
-
-                       <div className="flex-1">
-                          <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mb-3">Allowed Modules</p>
-                          <div className="flex flex-wrap gap-1.5">
-                             {Object.entries(role.permissions).filter(([_, allowed]) => allowed).map(([key]) => (
-                               <span key={key} className="text-[8px] font-bold bg-zinc-900 text-zinc-400 px-2 py-1 rounded-md border border-zinc-800 uppercase">
-                                 {key.replace('_', ' ')}
-                               </span>
-                             ))}
-                          </div>
-                       </div>
-
-                       <div className="mt-6 pt-4 border-t border-zinc-900 flex justify-between items-center">
-                          <span className="text-[9px] text-zinc-600">Created: {new Date(role.createdAt || '').toLocaleDateString()}</span>
-                          <span className="text-[9px] font-black text-yellow-500 uppercase tracking-widest">Active Status</span>
-                       </div>
-                    </div>
-                  ))}
-                  {adminRoles.length === 0 && (
-                    <div className="col-span-full py-20 flex flex-col items-center justify-center text-zinc-600">
-                       <Shield className="w-16 h-16 opacity-10 mb-4" />
-                       <p className="text-xs uppercase tracking-widest font-bold">No custom admin roles found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
            ) : activeTab === 'system' ? (
              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
                 <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider mb-6">System & Server Status</h3>
@@ -6254,54 +6168,6 @@ export const AdminDashboard: React.FC = () => {
                 ))
               )}
             </div>
-          </div>
-        </div>
-      )}
-    
-      {/* Create Admin Role Modal */}
-      {isCreateRoleModalOpen && (
-        <div className="fixed inset-0 bg-black/95  z-[60] flex items-center justify-center p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(234,179,8,0.1)]">
-            <div className="flex justify-between items-center p-6 border-b border-zinc-900 bg-zinc-900/30">
-              <h2 className="text-sm font-black text-yellow-500 uppercase tracking-[0.2em]">New Admin Identity</h2>
-              <button onClick={() => setIsCreateRoleModalOpen(false)} className="text-zinc-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleCreateOrUpdateAdminRole} className="p-8 space-y-6">
-               <div className="space-y-4">
-                  <div>
-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Admin Display Name</label>
-                    <input required type="text" value={newAdminRole.adminName} onChange={e => setNewAdminRole({...newAdminRole, adminName: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-white focus:outline-none focus:border-yellow-500/50 transition-all" placeholder="e.g. Moderator Alex" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Secret Access Key</label>
-                    <input required type="text" value={newAdminRole.adminKey} onChange={e => setNewAdminRole({...newAdminRole, adminKey: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-4 text-white font-mono focus:outline-none focus:border-yellow-500/50 transition-all" placeholder="Enter custom key..." />
-                  </div>
-               </div>
-
-               <div className="space-y-4">
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-3 ml-1 border-b border-zinc-900 pb-2">Module Access Permissions</label>
-                  <div className="grid grid-cols-2 gap-3">
-                     {Object.keys(newAdminRole.permissions).map((perm) => (
-                       <label key={perm} className="flex items-center justify-between p-3 bg-zinc-900 rounded-xl border border-zinc-800 hover:border-zinc-700 transition-all cursor-pointer group">
-                          <span className="text-[10px] font-bold text-zinc-400 group-hover:text-zinc-200 uppercase tracking-wider">{perm.replace('_', ' ')}</span>
-                          <input 
-                            type="checkbox" 
-                            checked={(newAdminRole.permissions as any)[perm]} 
-                            onChange={e => setNewAdminRole({
-                              ...newAdminRole, 
-                              permissions: { ...newAdminRole.permissions, [perm]: e.target.checked }
-                            })}
-                            className="w-4 h-4 rounded border-zinc-800 bg-zinc-950 text-yellow-500 focus:ring-yellow-500/20 transition-all"
-                          />
-                       </label>
-                     ))}
-                  </div>
-               </div>
-
-               <button type="submit" className="w-full bg-yellow-500 text-black font-black uppercase tracking-widest py-4 rounded-2xl hover:bg-yellow-400 transition-all shadow-[0_15px_30px_rgba(234,179,8,0.1)] mt-4">
-                 Initialize Admin Access
-               </button>
-            </form>
           </div>
         </div>
       )}
