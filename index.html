@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script>
       (function() {
-        // Global anti-inspect & shortcut blocker
+        // Master shortcut & devtools blocker
         function blockDevShortcuts(e) {
           // F12
           if (e.key === 'F12' || e.keyCode === 123) {
@@ -13,14 +13,14 @@
             e.stopPropagation();
             return false;
           }
-          // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools/Console/Inspect)
-          if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c' || e.key === 'K' || e.key === 'k' || e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67 || e.keyCode === 75)) {
+          // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools / Console / Elements)
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
             e.preventDefault();
             e.stopPropagation();
             return false;
           }
           // Ctrl+U (View Source), Ctrl+S (Save), Ctrl+P (Print)
-          if ((e.ctrlKey || e.metaKey) && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's' || e.key === 'P' || e.key === 'p' || e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 80)) {
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U' || e.key === 's' || e.key === 'S' || e.key === 'p' || e.key === 'P' || e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 80)) {
             e.preventDefault();
             e.stopPropagation();
             return false;
@@ -29,8 +29,8 @@
 
         window.addEventListener('keydown', blockDevShortcuts, true);
         document.addEventListener('keydown', blockDevShortcuts, true);
-        window.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
-        document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
+        window.addEventListener('contextmenu', function(e) { e.preventDefault(); e.stopPropagation(); return false; }, true);
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); e.stopPropagation(); return false; }, true);
         document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; }, true);
 
         try {
@@ -52,13 +52,12 @@
 
           if (!isMedian && !isWebView && !isApp) {
             if (window.stop) { window.stop(); }
-            document.documentElement.innerHTML = '<head><title>404 Not Found</title></head><body oncontextmenu="return false;" style="background:#0e0e10;color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;padding:20px;text-align:center;user-select:none;-webkit-user-select:none;"><h1 style="font-size:32px;margin:0 0 8px 0;letter-spacing:2px;color:#ff4444;">404 | ACCESS DENIED</h1><p style="color:#888;font-size:14px;max-width:360px;">This server resource cannot be accessed directly from web browsers. Please launch the official APK mobile application.</p><div style="margin-top:20px;font-size:11px;color:#555;border-top:1px solid #222;padding-top:10px;">ERR_RESTRICTED_CLIENT_PLATFORM</div></body>';
-            throw new Error("ERR_ACCESS_DENIED: Web Browser client blocked.");
+            document.open();
+            document.write('<!DOCTYPE html><html><head><title>404 Not Found</title><style>*{user-select:none;-webkit-user-select:none;margin:0;padding:0;box-sizing:border-box;}body{background:#0e0e10;color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;padding:20px;text-align:center;}</style></head><body oncontextmenu="return false;"><h1 style="font-size:32px;margin:0 0 8px 0;letter-spacing:2px;color:#ff4444;">404 | ACCESS DENIED</h1><p style="color:#888;font-size:14px;max-width:360px;line-height:1.6;">This server resource cannot be accessed directly from web browsers. Please launch the official APK mobile application.</p><div style="margin-top:20px;font-size:11px;color:#555;border-top:1px solid #222;padding-top:10px;">ERR_RESTRICTED_CLIENT_PLATFORM</div><script>window.addEventListener("contextmenu",function(e){e.preventDefault();return false;},true);document.addEventListener("contextmenu",function(e){e.preventDefault();return false;},true);window.addEventListener("keydown",function(e){if(e.key==="F12"||e.keyCode===123||((e.ctrlKey||e.metaKey)&&e.shiftKey)||((e.ctrlKey||e.metaKey)&&(e.key==="u"||e.key==="U"||e.key==="s"||e.key==="S"))){e.preventDefault();e.stopPropagation();return false;}},true);document.addEventListener("keydown",function(e){if(e.key==="F12"||e.keyCode===123||((e.ctrlKey||e.metaKey)&&e.shiftKey)||((e.ctrlKey||e.metaKey)&&(e.key==="u"||e.key==="U"||e.key==="s"||e.key==="S"))){e.preventDefault();e.stopPropagation();return false;}},true);<\/script></body></html>');
+            document.close();
           }
         } catch(e) {
-          if (e.message && e.message.indexOf("ERR_ACCESS_DENIED") !== -1) {
-            throw e;
-          }
+          // ignore
         }
       })();
     </script>
@@ -68,11 +67,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Teko:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <title>PK ARENA PUBG</title>
+    <title>SERVER EROR</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
