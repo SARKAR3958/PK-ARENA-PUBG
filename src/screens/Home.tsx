@@ -35,8 +35,8 @@ function MatchCountdown({ date, time }: { date?: string, time: string }) {
 
   if (!date || !timeLeft) return null;
   return (
-    <div className="bg-zinc-950/80  text-yellow-500 text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border border-yellow-500/20 flex items-center">
-      <Clock className="w-2.5 h-2.5 mr-1" />
+    <div className="bg-zinc-950/80 text-yellow-500 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border border-yellow-500/20 flex items-center shadow-md">
+      <Clock className="w-3 h-3 mr-1 text-yellow-400" />
       {timeLeft}
     </div>
   );
@@ -679,20 +679,20 @@ export function Home() {
                 <div className="absolute top-3 left-3 flex flex-col space-y-1.5">
                    {tourney.status === 'UPCOMING' && <MatchCountdown date={tourney.date} time={tourney.time} />}
                    {tourney.status === 'LIVE' && (
-                     <div className="bg-red-600/80  text-white text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border border-red-500/20 flex items-center shadow-[0_0_10px_rgba(220,38,38,0.5)]">
-                       <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse mr-1.5" />
+                     <div className="bg-red-600/90 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border border-red-400/40 flex items-center shadow-[0_0_12px_rgba(220,38,38,0.6)]">
+                       <div className="w-2 h-2 rounded-full bg-white animate-pulse mr-1.5" />
                        {t("STARTED")}
                      </div>
                    )}
                    {tourney.status === 'COMPLETED' && (
-                     <div className="bg-zinc-900/80  text-zinc-400 text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border border-zinc-700/50 flex items-center">
+                     <div className="bg-zinc-900/90 text-zinc-300 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border border-zinc-700 flex items-center shadow">
                        {t("COMPLETED")}
                      </div>
                    )}
                    
                 </div>
 
-                <div className={`absolute top-3 right-3 text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md shadow-lg ${
+                <div className={`absolute top-3 right-3 text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md shadow-lg ${
                   tourney.status === 'LIVE' ? 'bg-red-600 text-white animate-pulse' : 
                   tourney.status === 'COMPLETED' ? 'bg-zinc-800 text-zinc-400' : 'bg-blue-600 text-white'
                 }`}>
@@ -705,61 +705,61 @@ export function Home() {
               <div className="p-4 flex-1 flex flex-col bg-zinc-950">
                 <div className="flex justify-between items-start mb-4">
                    <h3 className="font-black text-sm text-yellow-500 uppercase tracking-tight line-clamp-1">{tourney.title}</h3>
-                   <div className="bg-yellow-500/10 border border-yellow-500/20 px-2 py-0.5 rounded text-[8px] font-black text-yellow-500 uppercase">
+                   <div className="bg-yellow-500/10 border border-yellow-500/30 px-2.5 py-1 rounded text-[10px] font-black text-yellow-400 uppercase tracking-wider">
                       {t(tourney.mode)}
                    </div>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-1.5 mb-4">
-                   <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                      <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("ENTRY")}</div>
-                      <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                         <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                   <div className="bg-zinc-900/60 rounded-lg p-2 border border-zinc-800/60 flex flex-col items-center justify-center text-center">
+                      <div className="text-xs text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("ENTRY")}</div>
+                      <div className="text-[15px] font-black text-white flex items-center gap-1">
+                         <img src={PK_COIN_ICON} alt="coin" className="w-4.5 h-4.5" />
                          {tourney.entryFee}
                       </div>
                    </div>
-                   <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                      <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("PER KILL")}</div>
-                      <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                         <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                   <div className="bg-zinc-900/60 rounded-lg p-2 border border-zinc-800/60 flex flex-col items-center justify-center text-center">
+                      <div className="text-xs text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PER KILL")}</div>
+                      <div className="text-[15px] font-black text-white flex items-center gap-1">
+                         <img src={PK_COIN_ICON} alt="coin" className="w-4.5 h-4.5" />
                          {tourney.perKill || 0}
                       </div>
                    </div>
-                   <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                      <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("PRIZE")}</div>
-                      <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                         <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                   <div className="bg-zinc-900/60 rounded-lg p-2 border border-zinc-800/60 flex flex-col items-center justify-center text-center">
+                      <div className="text-xs text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PRIZE")}</div>
+                      <div className="text-[15px] font-black text-white flex items-center gap-1">
+                         <img src={PK_COIN_ICON} alt="coin" className="w-4.5 h-4.5" />
                          {tourney.prizePool}
                       </div>
                    </div>
                 </div>
                 
                 <div className="grid grid-cols-3 gap-1.5 mb-4">
-                   <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                      <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("MAP")}</div>
-                      <div className="text-[9px] font-black text-white truncate w-full">{tourney.type === 'BR' ? 'Erangel' : tourney.type}</div>
+                   <div className="bg-zinc-900/60 rounded-lg p-2 border border-zinc-800/60 flex flex-col items-center justify-center text-center">
+                      <div className="text-xs text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("MAP")}</div>
+                      <div className="text-[15px] font-black text-white truncate w-full">{tourney.type === 'BR' ? 'Erangel' : tourney.type}</div>
                    </div>
-                   <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                      <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("DATE")}</div>
-                      <div className="text-[9px] font-black text-white truncate w-full">{formatDateShort(tourney.date)}</div>
+                   <div className="bg-zinc-900/60 rounded-lg p-2 border border-zinc-800/60 flex flex-col items-center justify-center text-center">
+                      <div className="text-xs text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("DATE")}</div>
+                      <div className="text-[15px] font-black text-white truncate w-full">{formatDateShort(tourney.date)}</div>
                    </div>
-                   <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                      <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("TIME")}</div>
-                      <div className="text-[9px] font-black text-white truncate w-full">{formatTimeAMPM(tourney.time)}</div>
+                   <div className="bg-zinc-900/60 rounded-lg p-2 border border-zinc-800/60 flex flex-col items-center justify-center text-center">
+                      <div className="text-xs text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("TIME")}</div>
+                      <div className="text-[15px] font-black text-white truncate w-full">{formatTimeAMPM(tourney.time)}</div>
                    </div>
                 </div>
 
 
                 <div className="space-y-2 mb-5">
                    <div className="flex justify-between items-end">
-                      <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t("Slots Progress")}</div>
-                      <div className="text-[10px] font-black text-white">
+                      <div className="text-[11px] text-zinc-400 font-bold uppercase tracking-widest">{t("Slots Progress")}</div>
+                      <div className="text-xs font-black text-white">
                          <span className={tourney.spotsFilled >= tourney.spotsTotal ? 'text-red-500' : 'text-yellow-500'}>{tourney.spotsFilled}</span>
                          <span className="text-zinc-600 mx-0.5">/</span>
                          <span className="text-zinc-400">{tourney.spotsTotal}</span>
                       </div>
                    </div>
-                   <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
+                   <div className="h-2 bg-zinc-900 rounded-full overflow-hidden border border-zinc-800">
                       <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${(tourney.spotsFilled / tourney.spotsTotal) * 100}%` }}
@@ -768,7 +768,7 @@ export function Home() {
                         }`}
                       />
                    </div>
-                   <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter text-zinc-600">
+                   <div className="flex justify-between text-[10px] font-black uppercase tracking-wider text-zinc-500">
                       <span>{tourney.spotsTotal - tourney.spotsFilled} {t("Slots Left")}</span>
                       <span>{Math.round((tourney.spotsFilled / tourney.spotsTotal) * 100)}% Full</span>
                    </div>
@@ -777,7 +777,7 @@ export function Home() {
                 {tourney.status === 'COMPLETED' ? (
                   <button 
                     onClick={(e) => { e.stopPropagation(); setViewingPlayersTournament(tourney); }} 
-                    className="mt-auto w-full font-black py-3 rounded-xl text-[10px] uppercase tracking-[0.2em] transition-all bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20"
+                    className="mt-auto w-full font-black py-3.5 rounded-xl text-xs uppercase tracking-[0.2em] transition-all bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20"
                   >
                     {t("SEE RESULTS")}
                   </button>
@@ -785,12 +785,12 @@ export function Home() {
                   <button 
                     onClick={(e) => handleJoinClick(e, tourney)} 
                     disabled={tourney.spotsFilled >= tourney.spotsTotal && !joinedMatches.some(m => m.tournamentId === tourney.id)}
-                    className={`mt-auto w-full font-black py-3 rounded-xl text-[10px] uppercase tracking-[0.2em] transition-all ${
+                    className={`mt-auto w-full font-black py-3.5 rounded-xl text-xs uppercase tracking-[0.2em] transition-all font-extrabold ${
                       joinedMatches.some(m => m.tournamentId === tourney.id) 
-                        ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500/20 active:scale-[0.95]' 
+                        ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/40 hover:bg-yellow-500/20 active:scale-[0.95] shadow-md shadow-yellow-500/5' 
                         : tourney.spotsFilled >= tourney.spotsTotal 
                           ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed border border-zinc-800'
-                          : 'bg-gradient-pk bg-gradient-pk-hover text-black shadow-lg shadow-yellow-500/10 active:scale-[0.95]'
+                          : 'bg-gradient-pk bg-gradient-pk-hover text-black shadow-lg shadow-yellow-500/20 active:scale-[0.95]'
                     }`}
                   >
                     {joinedMatches.some(m => m.tournamentId === tourney.id) ? t('ROOM DETAILS') : tourney.spotsFilled >= tourney.spotsTotal ? t('MATCH FULL') : t('JOIN MATCH')}
@@ -799,13 +799,13 @@ export function Home() {
                 <div className="flex gap-2 mt-2 w-full">
                   <button 
                     onClick={(e) => { e.stopPropagation(); setRulesModalMode('rules'); setShowRulesModal(tourney); }}
-                    className="flex-1 font-black py-2 rounded-xl text-[9px] uppercase tracking-[0.2em] transition-all bg-green-500/10 text-green-500 border border-green-500/30 hover:bg-green-500/20"
+                    className="flex-1 font-black py-2.5 rounded-xl text-[11px] uppercase tracking-[0.2em] transition-all bg-green-500/10 text-green-400 border border-green-500/30 hover:bg-green-500/20"
                   >
                     {t("RULES")}
                   </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setViewingPrizeDistribution(tourney); }}
-                    className="flex-1 font-black py-2 rounded-xl text-[9px] uppercase tracking-[0.2em] transition-all bg-blue-500/10 text-blue-500 border border-blue-500/30 hover:bg-blue-500/20"
+                    className="flex-1 font-black py-2.5 rounded-xl text-[11px] uppercase tracking-[0.2em] transition-all bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20"
                   >
                     {t("DETAILS")}
                   </button>
@@ -838,31 +838,31 @@ export function Home() {
               onClick={(e) => e.stopPropagation()}
               className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl overflow-hidden relative"
             >
-              <div className="relative w-full rounded-2xl overflow-hidden mb-6 border border-zinc-800 bg-zinc-900">
-                <img src={viewingPrizeDistribution.image || '/match-card.png'} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-20" />
-                <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/90 to-transparent"></div>
+              <div className="relative w-full rounded-2xl overflow-hidden mb-6 border border-zinc-800 bg-zinc-900 shadow-xl">
+                <img src={viewingPrizeDistribution.image || '/match-card.png'} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
                 <div className="relative p-4 flex justify-between items-center min-h-[110px]">
                   <div className="z-10 flex flex-col justify-center max-w-[60%]">
-                    <h2 className="text-xl sm:text-2xl font-black text-[#F2C94C] uppercase tracking-tighter drop-shadow-md leading-tight">PUBG LEGENDS</h2>
+                    <h2 className="text-xl sm:text-2xl font-black text-[#F2C94C] uppercase tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">PUBG LEGENDS</h2>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-1.5 space-y-1 sm:space-y-0">
-                      <div className="flex items-center text-white text-[10px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
-                        <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-300 mr-1 shrink-0" />
+                      <div className="flex items-center text-white text-[11px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
+                        <MapPin className="w-3.5 h-3.5 text-yellow-400 mr-1 shrink-0" />
                         Map: {viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}
                       </div>
-                      <div className="flex items-center text-white text-[10px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
-                        <Gamepad2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500 mr-1 shrink-0" />
+                      <div className="flex items-center text-white text-[11px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
+                        <Gamepad2 className="w-3.5 h-3.5 text-green-400 mr-1 shrink-0" />
                         Mode: {viewingPrizeDistribution.mode}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="absolute right-0 bottom-0 h-[120%] z-0 pointer-events-none origin-bottom flex items-end justify-end">
-                    <img src="/character-box.png" alt="Character" className="h-full object-contain object-bottom max-w-[140px]" />
+                  <div className="absolute right-0 bottom-0 h-[88%] z-0 pointer-events-none origin-bottom flex items-end justify-end pr-1">
+                    <img src="/character-box.png" alt="Character" className="h-full object-contain object-bottom max-w-[125px] drop-shadow-lg" />
                   </div>
 
                   <button
                     onClick={() => setViewingPrizeDistribution(null)}
-                    className="absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors backdrop-blur-sm"
+                    className="absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors backdrop-blur-sm"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -874,41 +874,41 @@ export function Home() {
                 {/* Details Section */}
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-1.5">
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("ENTRY")}</div>
-                        <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("ENTRY")}</div>
+                        <div className="text-sm font-black text-white flex items-center gap-1">
+                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
                            {viewingPrizeDistribution.entryFee}
                         </div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("PER KILL")}</div>
-                        <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PER KILL")}</div>
+                        <div className="text-sm font-black text-white flex items-center gap-1">
+                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
                            {viewingPrizeDistribution.perKill || 0}
                         </div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("PRIZE")}</div>
-                        <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PRIZE")}</div>
+                        <div className="text-sm font-black text-white flex items-center gap-1">
+                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
                            {viewingPrizeDistribution.prizePool}
                         </div>
                      </div>
                   </div>
                   
                   <div className="grid grid-cols-3 gap-1.5">
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("MAP")}</div>
-                        <div className="text-[9px] font-black text-white truncate w-full">{viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}</div>
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("MAP")}</div>
+                        <div className="text-sm font-black text-white truncate w-full">{viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}</div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("DATE")}</div>
-                        <div className="text-[9px] font-black text-white truncate w-full">{formatDateShort(viewingPrizeDistribution.date)}</div>
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("DATE")}</div>
+                        <div className="text-sm font-black text-white truncate w-full">{formatDateShort(viewingPrizeDistribution.date)}</div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("TIME")}</div>
-                        <div className="text-[9px] font-black text-white truncate w-full">{formatTimeAMPM(viewingPrizeDistribution.time)}</div>
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("TIME")}</div>
+                        <div className="text-sm font-black text-white truncate w-full">{formatTimeAMPM(viewingPrizeDistribution.time)}</div>
                      </div>
                   </div>
 
@@ -1381,31 +1381,31 @@ export function Home() {
               onClick={(e) => e.stopPropagation()}
               className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl overflow-hidden relative"
             >
-              <div className="relative w-full rounded-2xl overflow-hidden mb-6 border border-zinc-800 bg-zinc-900">
-                <img src={viewingPrizeDistribution.image || '/match-card.png'} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-20" />
-                <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/90 to-transparent"></div>
+              <div className="relative w-full rounded-2xl overflow-hidden mb-6 border border-zinc-800 bg-zinc-900 shadow-xl">
+                <img src={viewingPrizeDistribution.image || '/match-card.png'} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent"></div>
                 <div className="relative p-4 flex justify-between items-center min-h-[110px]">
                   <div className="z-10 flex flex-col justify-center max-w-[60%]">
-                    <h2 className="text-xl sm:text-2xl font-black text-[#F2C94C] uppercase tracking-tighter drop-shadow-md leading-tight">PUBG LEGENDS</h2>
+                    <h2 className="text-xl sm:text-2xl font-black text-[#F2C94C] uppercase tracking-tighter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] leading-tight">PUBG LEGENDS</h2>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mt-1.5 space-y-1 sm:space-y-0">
-                      <div className="flex items-center text-white text-[10px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
-                        <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-zinc-300 mr-1 shrink-0" />
+                      <div className="flex items-center text-white text-[11px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
+                        <MapPin className="w-3.5 h-3.5 text-yellow-400 mr-1 shrink-0" />
                         Map: {viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}
                       </div>
-                      <div className="flex items-center text-white text-[10px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
-                        <Gamepad2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500 mr-1 shrink-0" />
+                      <div className="flex items-center text-white text-[11px] sm:text-xs font-bold drop-shadow-md whitespace-nowrap">
+                        <Gamepad2 className="w-3.5 h-3.5 text-green-400 mr-1 shrink-0" />
                         Mode: {viewingPrizeDistribution.mode}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="absolute right-0 bottom-0 h-[120%] z-0 pointer-events-none origin-bottom flex items-end justify-end">
-                    <img src="/character-box.png" alt="Character" className="h-full object-contain object-bottom max-w-[140px]" />
+                  <div className="absolute right-0 bottom-0 h-[88%] z-0 pointer-events-none origin-bottom flex items-end justify-end pr-1">
+                    <img src="/character-box.png" alt="Character" className="h-full object-contain object-bottom max-w-[125px] drop-shadow-lg" />
                   </div>
 
                   <button
                     onClick={() => setViewingPrizeDistribution(null)}
-                    className="absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors backdrop-blur-sm"
+                    className="absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors backdrop-blur-sm"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1417,41 +1417,41 @@ export function Home() {
                 {/* Details Section */}
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-1.5">
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("ENTRY")}</div>
-                        <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("ENTRY")}</div>
+                        <div className="text-sm font-black text-white flex items-center gap-1">
+                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
                            {viewingPrizeDistribution.entryFee}
                         </div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("PER KILL")}</div>
-                        <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PER KILL")}</div>
+                        <div className="text-sm font-black text-white flex items-center gap-1">
+                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
                            {viewingPrizeDistribution.perKill || 0}
                         </div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("PRIZE")}</div>
-                        <div className="text-[9px] font-black text-white flex items-center gap-0.5">
-                           <img src={PK_COIN_ICON} alt="coin" className="w-2.5 h-2.5" />
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("PRIZE")}</div>
+                        <div className="text-sm font-black text-white flex items-center gap-1">
+                           <img src={PK_COIN_ICON} alt="coin" className="w-4 h-4" />
                            {viewingPrizeDistribution.prizePool}
                         </div>
                      </div>
                   </div>
                   
                   <div className="grid grid-cols-3 gap-1.5">
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("MAP")}</div>
-                        <div className="text-[9px] font-black text-white truncate w-full">{viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}</div>
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("MAP")}</div>
+                        <div className="text-sm font-black text-white truncate w-full">{viewingPrizeDistribution.type === 'BR' ? 'Erangel' : viewingPrizeDistribution.type}</div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("DATE")}</div>
-                        <div className="text-[9px] font-black text-white truncate w-full">{formatDateShort(viewingPrizeDistribution.date)}</div>
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("DATE")}</div>
+                        <div className="text-sm font-black text-white truncate w-full">{formatDateShort(viewingPrizeDistribution.date)}</div>
                      </div>
-                     <div className="bg-zinc-900/50 rounded-lg p-1.5 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
-                        <div className="text-[6px] text-zinc-500 font-black uppercase tracking-widest mb-0.5">{t("TIME")}</div>
-                        <div className="text-[9px] font-black text-white truncate w-full">{formatTimeAMPM(viewingPrizeDistribution.time)}</div>
+                     <div className="bg-zinc-900/50 rounded-lg p-2 border border-zinc-800/50 flex flex-col items-center justify-center text-center">
+                        <div className="text-[11px] text-zinc-400 font-black uppercase tracking-widest mb-0.5">{t("TIME")}</div>
+                        <div className="text-sm font-black text-white truncate w-full">{formatTimeAMPM(viewingPrizeDistribution.time)}</div>
                      </div>
                   </div>
 

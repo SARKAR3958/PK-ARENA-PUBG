@@ -163,6 +163,10 @@ export const PinSetupModal = () => {
                 <label className="text-[10px] text-yellow-500 uppercase font-bold mb-2 block tracking-widest text-center">Create 4-Digit PIN</label>
                 <input 
                   type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-form-type="other"
                   maxLength={4}
                   placeholder="0000"
                   value={pin}
@@ -177,6 +181,10 @@ export const PinSetupModal = () => {
                 <label className="text-[10px] text-yellow-500 uppercase font-bold mb-2 block tracking-widest text-center">Confirm PIN</label>
                 <input 
                   type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-form-type="other"
                   maxLength={4}
                   placeholder="0000"
                   value={confirmPin}

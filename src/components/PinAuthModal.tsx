@@ -99,6 +99,13 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
   const handleKeyPress = (num: string) => {
     if (lockedUntil && lockedUntil > Date.now()) return;
     
+    // If there was an error showing, typing a new digit starts fresh immediately
+    if (error) {
+      setError(false);
+      setPin(num);
+      return;
+    }
+
     if (pin.length < 4) {
       const newPin = pin + num;
       setPin(newPin);
@@ -110,20 +117,25 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
   };
 
   const handleDelete = () => {
-    setPin(pin.slice(0, -1));
+    if (error) {
+      setError(false);
+      setPin('');
+      return;
+    }
+    setPin(prev => prev.slice(0, -1));
     setError(false);
   };
 
-  const verifyPin = async (enteredPin: string) => {
+  const verifyPin = (enteredPin: string) => {
     if (enteredPin === currentUser?.appLockPin) {
-      // Success, reset attempts & lockout
-      await updateUserProfile({ pinAttempts: 5, pinLockoutUntil: null, pinLastFailedAt: null });
-      setTimeout(() => {
-        setPin('');
-        onClose(true);
-      }, 300);
+      // Instant success - reset pin & close modal immediately without waiting for server response
+      setPin('');
+      onClose(true);
+      updateUserProfile({ pinAttempts: 5, pinLockoutUntil: null, pinLastFailedAt: null }).catch(console.error);
     } else {
       setError(true);
+      // Instant reset of PIN so user can immediately type the next digit without lag
+      setPin('');
       const newAttempts = attemptsLeft - 1;
       setAttemptsLeft(newAttempts);
       const nowIso = new Date().toISOString();
@@ -132,24 +144,44 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
         const lockoutDurationMs = 5 * 60 * 1000; // 5 minutes reset time
         const lockoutTimeMs = Date.now() + lockoutDurationMs;
         const lockoutTime = new Date(lockoutTimeMs).toISOString();
-        await updateUserProfile({ 
+        updateUserProfile({ 
           pinAttempts: 0, 
           pinLockoutUntil: lockoutTime,
           pinLastFailedAt: nowIso
-        });
+        }).catch(console.error);
         setLockedUntil(lockoutTimeMs);
         setCountdownStr(calcCountdown(lockoutTimeMs));
         toast.error('Attempts limit reached! Keypad locked for 5 minutes.');
       } else {
-        await updateUserProfile({ 
+        updateUserProfile({ 
           pinAttempts: newAttempts,
           pinLastFailedAt: nowIso
-        });
+        }).catch(console.error);
         toast.error(`Wrong PIN. ${newAttempts} attempts left.`);
       }
-      setTimeout(() => setPin(''), 500);
     }
   };
+
+  // Physical keyboard listener for instant typing on PC/Keyboard
+  useEffect(() => {
+    if (!isOpen || showForgot || isAdmin) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handleKeyPress(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleDelete();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, showForgot, pin, error, lockedUntil, attemptsLeft]);
 
   const colors = [
     { name: 'Black', hex: '#000000' },
@@ -391,94 +423,127 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="relative bg-zinc-900 border border-zinc-800 p-6 rounded-3xl w-full max-w-sm flex flex-col items-center"
+            className="relative bg-zinc-900 border border-zinc-800 p-4 sm:p-5 rounded-2xl w-full max-w-[310px] flex flex-col items-center shadow-2xl"
           >
             <button 
+              type="button"
               onClick={() => onClose(false)}
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white"
+              className="absolute top-3.5 right-3.5 text-zinc-500 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition-colors"
             >
-              <X size={20} />
+              <X size={18} />
             </button>
             
-            <div className="w-16 h-16 rounded-2xl bg-yellow-500/10 flex items-center justify-center mb-4 border border-yellow-500/20">
-              <Lock size={32} className="text-yellow-500" />
+            <div className="w-11 h-11 rounded-xl bg-yellow-500/10 flex items-center justify-center mb-2.5 border border-yellow-500/20">
+              <Lock size={22} className="text-yellow-500" />
             </div>
             
-            <h2 className="text-xl font-black text-white mb-2 text-center uppercase tracking-widest">{title}</h2>
+            <h2 className="text-base font-black text-white mb-0.5 text-center uppercase tracking-wider">{title}</h2>
             
             {lockedUntil && lockedUntil > Date.now() ? (
-              <div className="mb-8 flex flex-col items-center">
-                <p className="text-sm text-red-500 font-bold text-center mb-1">
+              <div className="mb-4 flex flex-col items-center">
+                <p className="text-xs text-red-500 font-bold text-center mb-1">
                   Locked
                 </p>
-                <div className="bg-red-500/10 text-red-500 px-4 py-1.5 rounded-lg border border-red-500/20 font-black tracking-widest text-base font-mono">
+                <div className="bg-red-500/10 text-red-500 px-3 py-1 rounded-lg border border-red-500/20 font-black tracking-widest text-sm font-mono">
                   {countdownStr || '05:00'}
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-2 font-medium">
+                <p className="text-[9px] text-zinc-500 mt-1.5 font-medium">
                   Attempts will reset in 5 minutes
                 </p>
               </div>
             ) : (
-              <p className="text-sm text-zinc-400 mb-8 text-center font-bold">
+              <p className="text-[11px] text-zinc-400 mb-3 text-center font-medium">
                 Enter your 4-digit security PIN
               </p>
             )}
             
-            {/* PIN Display */}
-            <div className="flex gap-4 mb-8">
+            {/* PIN Display with instant responsive dots & shake on error */}
+            <motion.div 
+              animate={error ? { x: [-10, 10, -8, 8, -4, 4, 0] } : {}}
+              transition={{ duration: 0.25 }}
+              className="flex gap-3 mb-3.5"
+            >
               {[...Array(4)].map((_, i) => (
                 <div 
                   key={i}
-                  className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                  className={`w-3.5 h-3.5 rounded-full transition-all duration-150 ${
                     i < pin.length 
-                      ? error ? 'bg-red-500 scale-110' : 'bg-yellow-500 scale-110 shadow-[0_0_10px_rgba(234,179,8,0.5)]' 
-                      : 'bg-zinc-800'
+                      ? error 
+                        ? 'bg-red-500 scale-110 shadow-[0_0_8px_rgba(239,68,68,0.6)]' 
+                        : 'bg-yellow-500 scale-110 shadow-[0_0_8px_rgba(234,179,8,0.5)]' 
+                      : 'bg-zinc-800 border border-zinc-700/50'
                   }`}
                 />
               ))}
-            </div>
+            </motion.div>
 
-            {/* Keypad */}
-            <div className="grid grid-cols-3 gap-4 w-full">
+            {/* Compact, Ultra-Fast Responsive Keypad */}
+            <div className="grid grid-cols-3 gap-2 w-full">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
                 <button
                   key={num}
-                  onClick={() => handleKeyPress(num.toString())}
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    handleKeyPress(num.toString());
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                  }}
                   disabled={!!(lockedUntil && lockedUntil > Date.now())}
-                  className="h-14 rounded-2xl bg-zinc-800/50 flex items-center justify-center text-2xl font-black text-white active:bg-zinc-700 transition-colors disabled:opacity-50"
+                  className="h-11 rounded-xl bg-zinc-800/60 hover:bg-zinc-700/80 active:bg-yellow-500/20 active:border-yellow-500/40 border border-zinc-700/40 flex items-center justify-center text-xl font-black text-white transition-all active:scale-95 touch-manipulation select-none disabled:opacity-40 cursor-pointer"
                 >
                   {num}
                 </button>
               ))}
               
               <button
-                onClick={() => {
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
                   resetForgotState();
                   setShowForgot(true);
                 }}
-                className="h-14 rounded-2xl flex items-center justify-center text-zinc-400 font-bold uppercase text-[10px] tracking-widest hover:text-white transition-colors"
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
+                className="h-11 rounded-xl flex items-center justify-center text-zinc-400 font-bold uppercase text-[9px] tracking-wider hover:text-yellow-400 active:scale-95 transition-all touch-manipulation select-none cursor-pointer"
               >
                 FORGOT
               </button>
               
               <button
-                onClick={() => handleKeyPress('0')}
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  handleKeyPress('0');
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
                 disabled={!!(lockedUntil && lockedUntil > Date.now())}
-                className="h-14 rounded-2xl bg-zinc-800/50 flex items-center justify-center text-2xl font-black text-white active:bg-zinc-700 transition-colors disabled:opacity-50"
+                className="h-11 rounded-xl bg-zinc-800/60 hover:bg-zinc-700/80 active:bg-yellow-500/20 active:border-yellow-500/40 border border-zinc-700/40 flex items-center justify-center text-xl font-black text-white transition-all active:scale-95 touch-manipulation select-none disabled:opacity-40 cursor-pointer"
               >
                 0
               </button>
               
               <button
-                onClick={handleDelete}
-                className="h-14 rounded-2xl flex items-center justify-center text-zinc-400 font-bold active:bg-zinc-800 transition-colors"
+                type="button"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  handleDelete();
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                }}
+                className="h-11 rounded-xl flex items-center justify-center text-zinc-400 hover:text-white active:bg-zinc-800 active:scale-95 transition-all touch-manipulation select-none cursor-pointer"
               >
-                <Delete className="w-5 h-5" />
+                <Delete className="w-4 h-4" />
               </button>
             </div>
             
-            <div className="mt-6 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-center w-full">
-              Attempts Left: <span className={attemptsLeft <= 2 ? 'text-red-500' : 'text-yellow-500'}>{attemptsLeft}</span>
+            <div className="mt-3 text-[9px] font-bold text-zinc-500 uppercase tracking-widest text-center w-full">
+              Attempts Left: <span className={attemptsLeft <= 2 ? 'text-red-500 font-black' : 'text-yellow-500 font-black'}>{attemptsLeft}</span>
             </div>
           </motion.div>
         )}

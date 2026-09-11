@@ -139,6 +139,9 @@ export function Register() {
       <motion.form 
         initial="hidden"
         animate="show"
+        autoComplete="off"
+        noValidate
+        data-lpignore="true"
         variants={{
           hidden: { opacity: 0 },
           show: {
@@ -159,6 +162,11 @@ export function Register() {
               type="text" 
               required
               disabled={isLoading}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-lpignore="true"
               className={`w-full bg-zinc-900/50 border rounded-xl py-2.5 pl-9 pr-10 text-xs text-white placeholder-zinc-500 focus:outline-none disabled:opacity-50 transition-colors ${
                 usernameStatus === 'taken' 
                   ? 'border-red-500/50 focus:border-red-500/50' 
@@ -194,6 +202,11 @@ export function Register() {
               type="email" 
               required
               disabled={isLoading}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-lpignore="true"
               className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 disabled:opacity-50" 
               placeholder="Email Address" 
               value={formData.email}
@@ -210,6 +223,11 @@ export function Register() {
                 type="text" 
                 required
                 disabled={isLoading}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-lpignore="true"
                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 disabled:opacity-50" 
                 placeholder="In-Game Name" 
                 value={formData.inGameName}
@@ -224,6 +242,11 @@ export function Register() {
                 type="text" 
                 required
                 disabled={isLoading}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-lpignore="true"
                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 disabled:opacity-50" 
                 placeholder="Game UID" 
                 value={formData.gameUid}
@@ -241,6 +264,8 @@ export function Register() {
               required
               maxLength={10}
               disabled={isLoading}
+              autoComplete="off"
+              data-lpignore="true"
               className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 disabled:opacity-50" 
               placeholder="3XXXXXXXXX (10 Digits)" 
               value={formData.phoneNumber}
@@ -257,6 +282,12 @@ export function Register() {
                 type={showPassword ? 'text' : 'password'} 
                 required
                 disabled={isLoading}
+                autoComplete="new-password"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-lpignore="true"
+                data-form-type="other"
                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 disabled:opacity-50" 
                 placeholder="Password" 
                 value={formData.password}
@@ -271,6 +302,12 @@ export function Register() {
                 type={showPassword ? 'text' : 'password'} 
                 required
                 disabled={isLoading}
+                autoComplete="new-password"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-lpignore="true"
+                data-form-type="other"
                 className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 disabled:opacity-50" 
                 placeholder="Confirm" 
                 value={formData.confirmPassword}

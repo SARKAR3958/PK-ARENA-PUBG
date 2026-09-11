@@ -101,6 +101,9 @@ export function Login() {
       <motion.form 
         initial="hidden"
         animate="show"
+        autoComplete="off"
+        noValidate
+        data-lpignore="true"
         variants={{
           hidden: { opacity: 0 },
           show: {
@@ -120,6 +123,11 @@ export function Login() {
               type="text" 
               required
               disabled={isLoading}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-lpignore="true"
               className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50"
               placeholder="Email or Username"
               value={email}
@@ -135,6 +143,12 @@ export function Login() {
               type={showPassword ? 'text' : 'password'} 
               required
               disabled={isLoading}
+              autoComplete="new-password"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              data-lpignore="true"
+              data-form-type="other"
               className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl py-2.5 pl-9 pr-10 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-500/50 transition-colors disabled:opacity-50"
               placeholder="Password"
               value={password}

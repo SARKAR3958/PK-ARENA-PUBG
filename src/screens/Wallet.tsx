@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Upload, Info, AlertTriangle, CheckCircle2, Circle, ChevronRight, Edit2, Clock, X, Trophy, Gift, Sparkles, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -45,12 +45,44 @@ export function Wallet() {
     nayapay: NAYAPAY_LOGO
   };
 
+  // Cache payment logos in localStorage to prevent reload flicker on APK / Vercel
+  useEffect(() => {
+    if (paymentSettings) {
+      const cache: Record<string, string> = {};
+      ['easypaisa', 'jazzcash', 'sadapay', 'nayapay'].forEach(key => {
+        const custom = paymentSettings[`${key}Logo`];
+        if (custom) cache[key] = custom;
+      });
+      try {
+        localStorage.setItem('pk_cached_payment_logos', JSON.stringify(cache));
+      } catch (e) {
+        // ignore quota errors
+      }
+    }
+  }, [paymentSettings]);
+
   const getLogo = (method: 'easypaisa' | 'jazzcash' | 'sadapay' | 'nayapay') => {
     const custom = paymentSettings?.[`${method}Logo`];
-    if (!custom || custom.includes('ibb.co')) {
-      return logos[method];
+    if (custom && custom.trim() !== '') {
+      return custom;
     }
-    return custom;
+    // Check cached logo
+    try {
+      const cached = localStorage.getItem('pk_cached_payment_logos');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed[method]) return parsed[method];
+      }
+    } catch (e) {}
+
+    return logos[method] || `/${method}.png`;
+  };
+
+  const handleImgError = (e: SyntheticEvent<HTMLImageElement, Event>, method: 'easypaisa' | 'jazzcash' | 'sadapay' | 'nayapay') => {
+    const target = e.currentTarget;
+    if (target.src !== logos[method]) {
+      target.src = logos[method];
+    }
   };
 
   useEffect(() => {
@@ -449,7 +481,12 @@ export function Wallet() {
                       className={`relative p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${paymentMethod === 'easypaisa' ? 'bg-[#009144]/10 border-[#009144]' : 'bg-pk-card border-pk-border opacity-70'}`}
                     >
                       <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
-                        <img src={getLogo('easypaisa')} alt="Easypaisa" className="w-full h-full object-contain" />
+                        <img 
+                          src={getLogo('easypaisa')} 
+                          alt="Easypaisa" 
+                          className="w-full h-full object-contain" 
+                          onError={(e) => handleImgError(e, 'easypaisa')}
+                        />
                       </div>
                       <div className="font-bold text-[10px]">{paymentSettings?.easypaisaNumber || '03123456789'}</div>
                       <div className="text-[9px] text-yellow-500">{paymentSettings?.easypaisaTitle || 'Easypaisa Admin'}</div>
@@ -470,7 +507,12 @@ export function Wallet() {
                       className={`relative p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${paymentMethod === 'jazzcash' ? 'bg-[#ED1C24]/10 border-[#ED1C24]' : 'bg-pk-card border-pk-border opacity-70'}`}
                     >
                       <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
-                        <img src={getLogo('jazzcash')} alt="JazzCash" className="w-full h-full object-contain" />
+                        <img 
+                          src={getLogo('jazzcash')} 
+                          alt="JazzCash" 
+                          className="w-full h-full object-contain" 
+                          onError={(e) => handleImgError(e, 'jazzcash')}
+                        />
                       </div>
                       <div className="font-bold text-[10px]">{paymentSettings?.jazzcashNumber || '03213456789'}</div>
                       <div className="text-[9px] text-yellow-500">{paymentSettings?.jazzcashTitle || 'JazzCash Admin'}</div>
@@ -665,7 +707,13 @@ export function Wallet() {
                         className={`relative flex-shrink-0 min-w-[120px] w-[126px] p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${paymentMethod === 'easypaisa' ? 'bg-[#009144]/15 border-[#009144] shadow-[0_0_10px_rgba(0,145,68,0.2)]' : 'bg-pk-card border-pk-border opacity-70 hover:opacity-100'}`}
                       >
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
-                          <img src={getLogo('easypaisa')} alt="EasyPaisa" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          <img 
+                            src={getLogo('easypaisa')} 
+                            alt="EasyPaisa" 
+                            className="w-full h-full object-contain" 
+                            referrerPolicy="no-referrer" 
+                            onError={(e) => handleImgError(e, 'easypaisa')}
+                          />
                         </div>
                         <span className="text-[11px] font-bold text-white mb-0.5 truncate max-w-full">EasyPaisa</span>
                         {paymentMethod === 'easypaisa' ? (
@@ -688,7 +736,13 @@ export function Wallet() {
                         className={`relative flex-shrink-0 min-w-[120px] w-[126px] p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${paymentMethod === 'jazzcash' ? 'bg-[#ED1C24]/15 border-[#ED1C24] shadow-[0_0_10px_rgba(237,28,36,0.2)]' : 'bg-pk-card border-pk-border opacity-70 hover:opacity-100'}`}
                       >
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
-                          <img src={getLogo('jazzcash')} alt="JazzCash" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          <img 
+                            src={getLogo('jazzcash')} 
+                            alt="JazzCash" 
+                            className="w-full h-full object-contain" 
+                            referrerPolicy="no-referrer" 
+                            onError={(e) => handleImgError(e, 'jazzcash')}
+                          />
                         </div>
                         <span className="text-[11px] font-bold text-white mb-0.5 truncate max-w-full">JazzCash</span>
                         {paymentMethod === 'jazzcash' ? (
@@ -711,7 +765,13 @@ export function Wallet() {
                         className={`relative flex-shrink-0 min-w-[120px] w-[126px] p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${paymentMethod === 'sadapay' ? 'bg-sky-500/15 border-sky-400 text-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)]' : 'bg-pk-card border-pk-border opacity-70 hover:opacity-100'}`}
                       >
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
-                          <img src={getLogo('sadapay')} alt="SadaPay" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          <img 
+                            src={getLogo('sadapay')} 
+                            alt="SadaPay" 
+                            className="w-full h-full object-contain" 
+                            referrerPolicy="no-referrer" 
+                            onError={(e) => handleImgError(e, 'sadapay')}
+                          />
                         </div>
                         <span className="text-[11px] font-bold text-white mb-0.5 truncate max-w-full">SadaPay</span>
                         {paymentMethod === 'sadapay' ? (
@@ -734,7 +794,13 @@ export function Wallet() {
                         className={`relative flex-shrink-0 min-w-[120px] w-[126px] p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${paymentMethod === 'nayapay' ? 'bg-orange-500/15 border-orange-400 text-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.25)]' : 'bg-pk-card border-pk-border opacity-70 hover:opacity-100'}`}
                       >
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
-                          <img src={getLogo('nayapay')} alt="NayaPay" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          <img 
+                            src={getLogo('nayapay')} 
+                            alt="NayaPay" 
+                            className="w-full h-full object-contain" 
+                            referrerPolicy="no-referrer" 
+                            onError={(e) => handleImgError(e, 'nayapay')}
+                          />
                         </div>
                         <span className="text-[11px] font-bold text-white mb-0.5 truncate max-w-full">NayaPay</span>
                         {paymentMethod === 'nayapay' ? (

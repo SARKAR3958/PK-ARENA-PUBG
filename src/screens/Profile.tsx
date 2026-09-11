@@ -597,7 +597,7 @@ export function Profile() {
                 <h3 className="text-sm font-bold text-yellow-500 flex items-center uppercase"><Edit2 className="w-4 h-4 mr-2" /> Edit Profile</h3>
                 <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-white p-1 hover:bg-zinc-800 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
               </div>
-              <form onSubmit={onUpdateProfile} className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-hide">
+              <form onSubmit={onUpdateProfile} autoComplete="off" noValidate data-lpignore="true" className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-hide">
                 <div className="space-y-3">
                   <div>
                     <label className="text-[9px] text-zinc-500 uppercase font-bold mb-1 block">Username</label>
@@ -605,6 +605,11 @@ export function Profile() {
                       <input 
                         type="text" 
                         required
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        data-lpignore="true"
                         className={`w-full bg-zinc-900 border rounded-xl py-2.5 pl-4 pr-10 text-xs text-white focus:outline-none transition-colors ${
                           usernameStatus === 'taken' 
                             ? 'border-red-500/50 focus:border-red-500/50' 
@@ -636,6 +641,8 @@ export function Profile() {
                     <input 
                       type="text" 
                       placeholder="Paste image URL here"
+                      autoComplete="off"
+                      data-lpignore="true"
                       className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                       value={editForm.avatarUrl}
                       onChange={(e) => setEditForm({...editForm, avatarUrl: e.target.value})}
@@ -646,6 +653,8 @@ export function Profile() {
                       <label className="text-[9px] text-zinc-500 uppercase font-bold mb-1 block">In-Game Name</label>
                       <input 
                         type="text" 
+                        autoComplete="off"
+                        data-lpignore="true"
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                         value={editForm.inGameName}
                         onChange={(e) => setEditForm({...editForm, inGameName: e.target.value})}
@@ -655,6 +664,8 @@ export function Profile() {
                       <label className="text-[9px] text-zinc-500 uppercase font-bold mb-1 block">Game UID</label>
                       <input 
                         type="text" 
+                        autoComplete="off"
+                        data-lpignore="true"
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                         value={editForm.gameUid}
                         onChange={(e) => setEditForm({...editForm, gameUid: e.target.value})}
@@ -675,6 +686,12 @@ export function Profile() {
                     <input 
                       type="password" 
                       placeholder="Leave blank to keep current"
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-form-type="other"
                       className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                       value={editForm.newPassword}
                       onChange={(e) => setEditForm({...editForm, newPassword: e.target.value})}
@@ -1404,7 +1421,7 @@ export function Profile() {
                 <h3 className="text-sm font-bold text-yellow-500 flex items-center uppercase"><Edit2 className="w-4 h-4 mr-2" /> Edit Profile</h3>
                 <button onClick={() => setActiveModal(null)} className="text-zinc-400 hover:text-white p-1 hover:bg-zinc-800 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
               </div>
-              <form onSubmit={onUpdateProfile} className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-hide">
+              <form onSubmit={onUpdateProfile} autoComplete="off" noValidate data-lpignore="true" className="p-5 space-y-4 flex-1 overflow-y-auto scrollbar-hide">
                 <div className="space-y-3">
                   <div>
                     <label className="text-[9px] text-zinc-500 uppercase font-bold mb-1 block">Username</label>
@@ -1412,6 +1429,11 @@ export function Profile() {
                       <input 
                         type="text" 
                         required
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        data-lpignore="true"
                         className={`w-full bg-zinc-900 border rounded-xl py-2.5 pl-4 pr-10 text-xs text-white focus:outline-none transition-colors ${
                           usernameStatus === 'taken' 
                             ? 'border-red-500/50 focus:border-red-500/50' 
@@ -1443,6 +1465,8 @@ export function Profile() {
                     <input 
                       type="text" 
                       placeholder="Paste image URL here"
+                      autoComplete="off"
+                      data-lpignore="true"
                       className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                       value={editForm.avatarUrl}
                       onChange={(e) => setEditForm({...editForm, avatarUrl: e.target.value})}
@@ -1453,6 +1477,8 @@ export function Profile() {
                       <label className="text-[9px] text-zinc-500 uppercase font-bold mb-1 block">In-Game Name</label>
                       <input 
                         type="text" 
+                        autoComplete="off"
+                        data-lpignore="true"
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                         value={editForm.inGameName}
                         onChange={(e) => setEditForm({...editForm, inGameName: e.target.value})}
@@ -1462,6 +1488,8 @@ export function Profile() {
                       <label className="text-[9px] text-zinc-500 uppercase font-bold mb-1 block">Game UID</label>
                       <input 
                         type="text" 
+                        autoComplete="off"
+                        data-lpignore="true"
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                         value={editForm.gameUid}
                         onChange={(e) => setEditForm({...editForm, gameUid: e.target.value})}
@@ -1482,6 +1510,12 @@ export function Profile() {
                     <input 
                       type="password" 
                       placeholder="Leave blank to keep current"
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      data-form-type="other"
                       className="w-full bg-zinc-900 border border-zinc-800 rounded-xl py-2.5 px-4 text-xs text-white focus:outline-none focus:border-yellow-500/50" 
                       value={editForm.newPassword}
                       onChange={(e) => setEditForm({...editForm, newPassword: e.target.value})}
