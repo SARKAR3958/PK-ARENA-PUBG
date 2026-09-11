@@ -3,6 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <script>
+      (function() {
+        // Global anti-inspect & shortcut blocker
+        function blockDevShortcuts(e) {
+          // F12
+          if (e.key === 'F12' || e.keyCode === 123) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+          // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools/Console/Inspect)
+          if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c' || e.key === 'K' || e.key === 'k' || e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67 || e.keyCode === 75)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+          // Ctrl+U (View Source), Ctrl+S (Save), Ctrl+P (Print)
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's' || e.key === 'P' || e.key === 'p' || e.keyCode === 85 || e.keyCode === 83 || e.keyCode === 80)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }
+
+        window.addEventListener('keydown', blockDevShortcuts, true);
+        document.addEventListener('keydown', blockDevShortcuts, true);
+        window.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; }, true);
+        document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; }, true);
+
+        try {
+          var isDev = window.location.hostname === 'localhost' || window.location.hostname.indexOf('ais-dev') !== -1 || window.location.hostname.indexOf('ais-pre') !== -1;
+          var isAdmin = window.location.pathname.indexOf('/admin') === 0 || window.location.search.indexOf('access=admin') !== -1 || sessionStorage.getItem('admin_bypass_verified') === 'true';
+          
+          if (window.location.search.indexOf('access=admin') !== -1) {
+            sessionStorage.setItem('admin_bypass_verified', 'true');
+            return;
+          }
+          if (isDev || isAdmin) {
+            return;
+          }
+
+          var ua = (navigator.userAgent || navigator.vendor || window.opera || '').toLowerCase();
+          var isMedian = ua.indexOf('median') !== -1 || ua.indexOf('gonative') !== -1 || window.median || window.gonative;
+          var isWebView = ua.indexOf('wv') !== -1 || (ua.indexOf('android') !== -1 && ua.indexOf('version/') !== -1) || (/(iphone|ipod|ipad).*applewebkit(?!.*safari)/i.test(navigator.userAgent));
+          var isApp = ua.indexOf('pkarena') !== -1 || ua.indexOf('pk_arena') !== -1;
+
+          if (!isMedian && !isWebView && !isApp) {
+            if (window.stop) { window.stop(); }
+            document.documentElement.innerHTML = '<head><title>404 Not Found</title></head><body oncontextmenu="return false;" style="background:#0e0e10;color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;padding:20px;text-align:center;user-select:none;-webkit-user-select:none;"><h1 style="font-size:32px;margin:0 0 8px 0;letter-spacing:2px;color:#ff4444;">404 | ACCESS DENIED</h1><p style="color:#888;font-size:14px;max-width:360px;">This server resource cannot be accessed directly from web browsers. Please launch the official APK mobile application.</p><div style="margin-top:20px;font-size:11px;color:#555;border-top:1px solid #222;padding-top:10px;">ERR_RESTRICTED_CLIENT_PLATFORM</div></body>';
+            throw new Error("ERR_ACCESS_DENIED: Web Browser client blocked.");
+          }
+        } catch(e) {
+          if (e.message && e.message.indexOf("ERR_ACCESS_DENIED") !== -1) {
+            throw e;
+          }
+        }
+      })();
+    </script>
     <meta name="google" content="notranslate" />
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no" />
     <link rel="icon" type="image/jpeg" href="/PK-LOGO.jpg" />
