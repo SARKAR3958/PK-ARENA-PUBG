@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron-push",
-      "schedule": "0 7,10,13,16 * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron-reset",
-      "schedule": "0 19 * * *"
+      "schedule": "0 1 * * *"
     }
   ],
   "rewrites": [
