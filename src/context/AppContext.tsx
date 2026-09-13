@@ -2,13 +2,14 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import toast from 'react-hot-toast';
 import { auth, db, googleProvider } from '../lib/firebase';
 import { signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
-import { ref, onValue, set, get, update, push, child, query, orderByChild, limitToLast, equalTo } from 'firebase/database';
+import { ref, onValue, set, get, update, push, remove, child, query, orderByChild, limitToLast, equalTo } from 'firebase/database';
 import { initOneSignal, registerUserWithOneSignal } from '../lib/onesignal';
 import { User, AppSettings, Tournament, Announcement, AppPopup } from '../types';
 import { PinAuthModal } from '../components/PinAuthModal';
 import { PinSetupModal } from '../components/PinSetupModal';
 import { DEFAULT_AVATAR, EASYPAISA_LOGO, JAZZCASH_LOGO, SADAPAY_LOGO, NAYAPAY_LOGO, PK_LOGO_IMAGE, PK_COIN_ICON } from '../lib/assets';
 import { preloadAllCoreAssets, preloadDynamicAssets } from '../lib/assetPreloader';
+import { playErrorSound } from '../lib/sound';
 
 interface Match {
   id: string;
@@ -928,7 +929,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const [selectedLang, setSelectedLangState] = useState<'English' | 'Roman Urdu' | 'Urdu'>(() => {
-    return (localStorage.getItem('pk_arena_lang') as any) || 'English';
+  
+  return (localStorage.getItem('pk_arena_lang') as any) || 'English';
   });
 
   const setSelectedLang = (lang: 'English' | 'Roman Urdu' | 'Urdu') => {
@@ -1014,6 +1016,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const tourList = Object.values(data) as Tournament[];
         setTournaments(tourList);
         preloadDynamicAssets(tourList.map((t) => t.image));
+
+        // Auto-publish any scheduled matches whose publish time has arrived
+        const now = Date.now();
+        tourList.forEach(async (t) => {
+          if ((t.isScheduled || t.status === 'SCHEDULED') && t.autoPublishOnTime !== false && t.scheduledPublishTime) {
+            const schedTime = new Date(t.scheduledPublishTime).getTime();
+            if (!isNaN(schedTime) && schedTime <= now) {
+              try {
+                await update(ref(db, `tournaments/${t.id}`), {
+                  isScheduled: false,
+                  status: 'UPCOMING',
+                  publishedAt: new Date().toISOString()
+                });
+              } catch (e) {
+                // Ignore silent update errors
+              }
+            }
+          }
+        });
       } else {
         setTournaments([]);
       }
@@ -1217,7 +1238,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error: any) {
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
     }
   };
 
@@ -1312,7 +1333,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await update(ref(db), updates);
       toast.success('Account created successfully!');
     } catch (error: any) {
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
       throw error;
     }
   };
@@ -1359,7 +1380,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, emailToAuth, pass);
       toast.success('Logged in successfully!');
     } catch (error: any) {
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
       throw error;
     }
   };
@@ -1369,7 +1390,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await sendPasswordResetEmail(auth, email);
       toast.success('Password reset email sent!');
     } catch (error: any) {
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
     }
   };
 
@@ -1396,7 +1417,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       toast.success('Logged out successfully');
     } catch (error: any) {
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
     }
   };
 
@@ -1590,36 +1611,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toast.success('Profile updated everywhere!');
     } catch (error: any) {
       toast.dismiss(loadingToast);
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
       throw error;
     }
   };
 
   const joinMatch = async (tournament: any, slot: number, teamDetails?: { inGameName: string, gameUid: string }[]) => {
     if (!currentUser || !auth.currentUser) {
-      toast.error('Please login first');
+      playErrorSound(); toast.error('Please login first');
       return;
     }
 
     const authSuccess = await requirePinAuth();
     if (!authSuccess) {
-      toast.error('Authentication failed.');
+      playErrorSound(); toast.error('Authentication failed.');
       return;
     }
 
     if (currentUser.walletBalance < tournament.entryFee) {
-      toast.error('Insufficient coins!');
+      playErrorSound(); toast.error('Insufficient coins!');
       return;
     }
 
     const alreadyJoined = joinedMatches.some(m => m.tournamentId === tournament.id);
     if (alreadyJoined) {
-      toast.error('You have already joined this match!');
+      playErrorSound(); toast.error('You have already joined this match!');
       return;
     }
 
     if (!currentUser.inGameName || !currentUser.gameUid) {
-      toast.error('Please update your In-game Name and UID in profile first!');
+      playErrorSound(); toast.error('Please update your In-game Name and UID in profile first!');
       return;
     }
 
@@ -1729,7 +1750,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       toast.success(`Joined Slot #${slot} successfully!`);
     } catch (error: any) {
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
     }
   };
 
@@ -1746,7 +1767,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await update(ref(db), updates);
         toast.success(`Claimed ${achievement.reward} coins!`);
       } catch (error: any) {
-        toast.error(error.message);
+        playErrorSound(); toast.error(error.message);
       }
     }
   };
@@ -1776,13 +1797,106 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       await update(ref(db), updates);
     } catch (error: any) {
-      toast.error(error.message);
+      playErrorSound(); toast.error(error.message);
     }
   };
 
   const checkProfileCompletion = (user: User | null) => {
     return !!(user && user.inGameName && user.gameUid && (user.phone || (user as any).phoneNumber));
   };
+
+
+  useEffect(() => {
+    const checkAutoTasks = async () => {
+      const isAdmin = localStorage.getItem("pk_user_role") === "admin" || localStorage.getItem("pk_user_role") === "owner";
+      if (!isAdmin) return;
+      const now = new Date();
+      const dateString = now.toLocaleDateString("en-GB"); 
+      const hour = now.getHours();
+
+      try {
+        const resetRef = ref(db, "systemSettings/lastDailyReset");
+        const resetSnap = await get(resetRef);
+        const lastReset = resetSnap.val();
+
+        if (lastReset !== dateString) {
+           await remove(ref(db, "notifications"));
+           await remove(ref(db, "userNotifications"));
+           await set(ref(db, "systemSettings/lastDailyReset"), dateString);
+           console.log("Daily notification reset complete");
+        }
+
+        const targetHours = [12, 15, 18, 21];
+        if (targetHours.includes(hour) && appSettings?.onesignalAppId && appSettings?.onesignalRestApiKey) {
+          const pushKey = `${dateString}-${hour}`;
+          const pushRef = ref(db, "systemSettings/lastAutoPush");
+          const pushSnap = await get(pushRef);
+          
+          if (pushSnap.val() !== pushKey) {
+             await set(ref(db, "systemSettings/lastAutoPush"), pushKey);
+             
+             const getNotificationForHour = (targetHour: number) => {
+               switch (targetHour) {
+                 case 12:
+                   return {
+                     title: "🔥 PK ARENA PUBG",
+                     message: "Don't miss today's exciting matches!"
+                   };
+                 case 15:
+                   return {
+                     title: "🏆 Your Next Victory Awaits!",
+                     message: "Open PK ARENA PUBG and start playing."
+                   };
+                 case 18:
+                   return {
+                     title: "🎯 The Battle Is On!",
+                     message: "Jump now in PK ARENA PUBG, play hard, and show them what you’ve got"
+                   };
+                 case 21:
+                   return {
+                     title: "💎 One More Battle Tonight?",
+                     message: "Your next win could be waiting. Come back and play!"
+                   };
+                 default:
+                   return {
+                     title: "🔥 PK ARENA PUBG",
+                     message: "Don't miss today's exciting matches!"
+                   };
+               }
+             };
+
+             const scheduledPush = getNotificationForHour(hour);
+
+             fetch("/api/send-notification", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  appId: appSettings.onesignalAppId,
+                  restApiKey: appSettings.onesignalRestApiKey,
+                  title: scheduledPush.title,
+                  message: scheduledPush.message,
+                  url: ""
+                }),
+              }).then(() => {
+                 push(ref(db, "adminNotificationHistory"), {
+                   title: scheduledPush.title,
+                   message: scheduledPush.message,
+                   type: "AUTO",
+                   createdAt: Date.now()
+                 });
+              }).catch(console.error);
+          }
+        }
+      } catch (err) {
+        console.error("Auto task error", err);
+      }
+    };
+
+    // const interval = setInterval(checkAutoTasks, 60 * 1000); 
+    // checkAutoTasks(); 
+
+    return () => {};
+  }, [appSettings?.onesignalAppId, appSettings?.onesignalRestApiKey]);
 
   return (
     <AppContext.Provider value={{ 

@@ -461,9 +461,14 @@ export const PinAuthModal: React.FC<PinAuthModalProps> = ({ isOpen, onClose, tit
                 </p>
               </div>
             ) : (
-              <p className="text-[11px] text-zinc-400 mb-3 text-center font-medium">
-                Enter your 4-digit security PIN
-              </p>
+              <div className="flex flex-col items-center">
+                <p className="text-[11px] text-zinc-400 mb-1 text-center font-medium">
+                  Enter your 4-digit security PIN
+                </p>
+                <p className="text-[9px] text-yellow-500/90 text-center font-bold px-4 mb-3 leading-tight">
+                  FAQ: Agar ap pin code and security questions bhool gaye hain, in-app support admin se contact karein
+                </p>
+              </div>
             )}
             
             {/* PIN Display with instant responsive dots & shake on error */}

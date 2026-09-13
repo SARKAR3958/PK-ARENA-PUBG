@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Shield, ChevronRight, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import toast from 'react-hot-toast';
-import { playWrongPinSound, playPinSuccessSound } from '../lib/sound';
+import { playWrongPinSound, playPinSuccessSound, startInAppMusic } from '../lib/sound';
 
 export const PinSetupModal = () => {
   const { currentUser, updateUserProfile, forcePinSetup, setForcePinSetup } = useApp();
@@ -86,6 +86,7 @@ export const PinSetupModal = () => {
       playPinSuccessSound();
       toast.success('Security PIN set successfully!');
       if (forcePinSetup) setForcePinSetup(false);
+      startInAppMusic(500);
     } catch (err: any) {
       toast.error(err.message || 'Failed to set PIN');
     } finally {

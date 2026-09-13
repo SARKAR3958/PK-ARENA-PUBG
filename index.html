@@ -5,8 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <script>
       (function() {
-        // Master shortcut, inspect & right-click blocker
+        function isAdminMode() {
+          try {
+            if (window.__IS_ADMIN_USER__ === true) return true;
+            var path = (window.location.pathname || '').toLowerCase();
+            if (path.indexOf('/admin') !== -1 || path.indexOf('/owner') !== -1) return true;
+            if (sessionStorage.getItem('admin_authenticated') === 'true' || localStorage.getItem('pk_is_admin') === 'true') return true;
+            var role = localStorage.getItem('pk_user_role') || sessionStorage.getItem('pk_user_role');
+            if (role === 'admin' || role === 'owner') return true;
+          } catch (err) {}
+          return false;
+        }
+
+        // Master shortcut, inspect & right-click blocker (Enabled for Admin, Blocked for regular users)
         function blockDevShortcuts(e) {
+          if (isAdminMode()) {
+            return; // Allow all shortcuts & dev tools in Admin
+          }
           // F12
           if (e.key === 'F12' || e.keyCode === 123) {
             e.preventDefault();
@@ -27,11 +42,28 @@
           }
         }
 
+        function blockContextMenu(e) {
+          if (isAdminMode()) {
+            return; // Allow right click / inspect in Admin
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+
+        function blockDrag(e) {
+          if (isAdminMode()) {
+            return;
+          }
+          e.preventDefault();
+          return false;
+        }
+
         window.addEventListener('keydown', blockDevShortcuts, true);
         document.addEventListener('keydown', blockDevShortcuts, true);
-        window.addEventListener('contextmenu', function(e) { e.preventDefault(); e.stopPropagation(); return false; }, true);
-        document.addEventListener('contextmenu', function(e) { e.preventDefault(); e.stopPropagation(); return false; }, true);
-        document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; }, true);
+        window.addEventListener('contextmenu', blockContextMenu, true);
+        document.addEventListener('contextmenu', blockContextMenu, true);
+        document.addEventListener('dragstart', blockDrag, true);
       })();
     </script>
     <meta name="google" content="notranslate" />
@@ -51,7 +83,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Teko:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>PK ARENA PUBG</title>
   </head>
-  <body oncontextmenu="return false;">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

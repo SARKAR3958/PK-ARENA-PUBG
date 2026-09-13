@@ -31,24 +31,27 @@ const OWNER_AVATAR = DEFAULT_AVATAR;
 
 const ALL_MODULES = [
   { id: 'dashboard', label: 'Dashboard & Stats', desc: 'View global overview and stats' },
+  { id: 'support', label: 'Support Chat / Tickets', desc: 'Realtime user support chat and ticket replies' },
+  { id: 'users', label: 'Players & Users', desc: 'View, search, edit & ban users' },
+  { id: 'schedule_matches', label: 'Schedule Matches', desc: 'Queue & schedule match auto-publishing' },
   { id: 'tournaments', label: 'Tournaments Management', desc: 'Create, edit & manage tournaments' },
   { id: 'results', label: 'Match Results & Rooms', desc: 'Room ID/Pass & results upload' },
-  { id: 'users', label: 'Players & Users', desc: 'View, search, edit & ban users' },
+  { id: 'announcements', label: 'Announcements & News', desc: 'Post tournament alerts & news feed' },
+  { id: 'popups', label: 'In-App Popups', desc: 'Custom promotional modal popups' },
   { id: 'transactions', label: 'Deposit Requests', desc: 'Verify incoming deposit proofs' },
   { id: 'withdrawals', label: 'Withdrawal Requests', desc: 'Approve and process payouts' },
   { id: 'wallet', label: 'Coin Packages & Wallet', desc: 'Manage coin packs and adjustments' },
-  { id: 'teams', label: 'Squads & Teams', desc: 'View and manage team rosters' },
-  { id: 'banners', label: 'Home Banners', desc: 'Manage top sliding banners' },
-  { id: 'notifications', label: 'Notifications & Alerts', desc: 'Send push alerts to users' },
   { id: 'promo_codes', label: 'Promo Codes', desc: 'Generate and track promo codes' },
   { id: 'leaderboard', label: 'Leaderboard', desc: 'Rankings and high scorers' },
   { id: 'referrals', label: 'Referral System', desc: 'Referral settings and rewards' },
+  { id: 'notifications', label: 'Notifications & Alerts', desc: 'Send push alerts to users' },
+  { id: 'teams', label: 'Squads & Teams', desc: 'View and manage team rosters' },
+  { id: 'banners', label: 'Home Banners', desc: 'Manage top sliding banners' },
   { id: 'payment_settings', label: 'Payment Accounts', desc: 'Payment receiver numbers and QRs' },
   { id: 'settings', label: 'App Settings & Maintenance', desc: 'Maintenance mode and rules' },
   { id: 'themes', label: 'Theme Styling', desc: 'Seasonal styles and presets' },
-  { id: 'system', label: 'System Health', desc: 'Server and database connection status' },
-  { id: 'popups', label: 'In-App Popups', desc: 'Announcements and custom popups' },
-  { id: 'pin_resets', label: 'PIN Reset Requests', desc: 'Handle user PIN resets' }
+  { id: 'pin_resets', label: 'PIN Reset Requests', desc: 'Handle user PIN reset approvals' },
+  { id: 'system', label: 'System Health', desc: 'Server and database connection status' }
 ];
 
 export function OwnerDashboard() {
@@ -79,24 +82,27 @@ export function OwnerDashboard() {
     adminKey: '',
     permissions: {
       dashboard: true,
+      support: false,
+      users: false,
+      schedule_matches: false,
       tournaments: false,
       results: false,
-      users: false,
+      announcements: false,
+      popups: false,
       transactions: false,
       withdrawals: false,
       wallet: false,
-      teams: false,
-      banners: false,
-      notifications: false,
       promo_codes: false,
       leaderboard: false,
       referrals: false,
+      notifications: false,
+      teams: false,
+      banners: false,
       payment_settings: false,
       settings: false,
       themes: false,
-      system: false,
-      popups: false,
-      pin_resets: false
+      pin_resets: false,
+      system: false
     }
   });
 
@@ -141,8 +147,7 @@ export function OwnerDashboard() {
           setCurrentOwnerData({ key: data });
         } else if (data && typeof data === 'object') {
           setCurrentOwnerData({
-            key: data.key || data.adminKey || 'PAKARENA',
-            deviceId: data.deviceId
+            key: data.key || data.adminKey || 'PAKARENA'
           });
         }
       } else {
@@ -157,22 +162,19 @@ export function OwnerDashboard() {
     };
   }, []);
 
-  // Auto Login if remembered
+  // Auto Login if remembered (Owner has no device lock - can login on any device)
   useEffect(() => {
     const savedOwnerKey = localStorage.getItem('owner_access_key');
     if (savedOwnerKey && currentOwnerData) {
       const currentMaster = currentOwnerData.key || 'PAKARENA';
-      if (savedOwnerKey === currentMaster) {
-        const currentDevId = getDeviceId();
-        if (!currentOwnerData.deviceId || currentOwnerData.deviceId === currentDevId) {
-          setIsOwnerAuthenticated(true);
-        }
+      if (savedOwnerKey.trim() === currentMaster.trim()) {
+        setIsOwnerAuthenticated(true);
       }
     }
     setIsCheckingAuth(false);
   }, [currentOwnerData]);
 
-  // Handle Login
+  // Handle Login (Owner has no device lock)
   const handleOwnerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ownerKeyInput.trim()) {
@@ -182,20 +184,7 @@ export function OwnerDashboard() {
 
     const currentMaster = currentOwnerData?.key || 'PAKARENA';
 
-    if (ownerKeyInput.trim() === currentMaster) {
-      const currentDevId = getDeviceId();
-
-      // Check device lock
-      if (currentOwnerData?.deviceId && currentOwnerData.deviceId !== currentDevId) {
-        toast.error('Access Denied: Owner Portal is locked to another device.');
-        return;
-      }
-
-      // Bind device if not bound
-      if (!currentOwnerData?.deviceId) {
-        await update(ref(db, 'owner'), { deviceId: currentDevId });
-      }
-
+    if (ownerKeyInput.trim() === currentMaster.trim()) {
       setIsOwnerAuthenticated(true);
       if (rememberMe) {
         localStorage.setItem('owner_access_key', ownerKeyInput.trim());
@@ -258,24 +247,27 @@ export function OwnerDashboard() {
       adminKey: '',
       permissions: {
         dashboard: true,
+        support: false,
+        users: false,
+        schedule_matches: false,
         tournaments: false,
         results: false,
-        users: false,
+        announcements: false,
+        popups: false,
         transactions: false,
         withdrawals: false,
         wallet: false,
-        teams: false,
-        banners: false,
-        notifications: false,
         promo_codes: false,
         leaderboard: false,
         referrals: false,
+        notifications: false,
+        teams: false,
+        banners: false,
         payment_settings: false,
         settings: false,
         themes: false,
-        system: false,
-        popups: false,
-        pin_resets: false
+        pin_resets: false,
+        system: false
       }
     });
   };
@@ -320,10 +312,9 @@ export function OwnerDashboard() {
 
     try {
       setIsChangingKey(true);
-      const devId = getDeviceId();
       await set(ref(db, 'owner'), {
         key: newOwnerKey.trim(),
-        deviceId: devId,
+        deviceId: null,
         updatedAt: new Date().toISOString()
       });
 
@@ -335,18 +326,6 @@ export function OwnerDashboard() {
       toast.error('Failed to update Owner Key');
     } finally {
       setIsChangingKey(false);
-    }
-  };
-
-  // Reset Owner Device Binding
-  const handleResetOwnerDevice = async () => {
-    if (window.confirm('Reset Owner device lock? Any device with the Master Key will be able to bind.')) {
-      try {
-        await update(ref(db, 'owner'), { deviceId: null });
-        toast.success('Owner device lock reset successfully.');
-      } catch (err) {
-        toast.error('Failed to reset lock');
-      }
     }
   };
 
@@ -767,19 +746,9 @@ export function OwnerDashboard() {
                   </div>
                   <div className="flex items-center justify-between text-xs pt-3 border-t border-zinc-900">
                     <span className="text-zinc-500 uppercase font-bold tracking-wider">Device Binding Lock:</span>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-mono text-xs text-zinc-400">
-                        {currentOwnerData?.deviceId ? 'ACTIVE (Bound to this device)' : 'UNBOUND (Any device)'}
-                      </span>
-                      {currentOwnerData?.deviceId && (
-                        <button
-                          onClick={handleResetOwnerDevice}
-                          className="text-[10px] text-yellow-500 underline font-bold"
-                        >
-                          Reset Binding
-                        </button>
-                      )}
-                    </div>
+                    <span className="font-mono text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                      DISABLED (Owner key is accessible from any device)
+                    </span>
                   </div>
                 </div>
 

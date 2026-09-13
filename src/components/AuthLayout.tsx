@@ -2,10 +2,13 @@ import { ReactNode, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { GoldenParticlesBg } from './GoldenParticlesBg';
 import { PK_LOGO_IMAGE, LSBG_IMAGE } from '../lib/assets';
-import { startAuthBgSound, stopAuthBgSound } from '../lib/sound';
+import { startAuthBgSound, stopAuthBgSound, stopInAppMusic } from '../lib/sound';
 
 export function AuthLayout({ children, title, subtitle }: { children: ReactNode, title?: string, subtitle?: string }) {
   useEffect(() => {
+    // Ensure in-app music is stopped on auth screens
+    stopInAppMusic();
+
     // Start login/signup background sound with 500ms delay in loop
     startAuthBgSound(500);
 

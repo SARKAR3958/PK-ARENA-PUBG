@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext';
 import { ref, get, update } from 'firebase/database';
 import { db } from '../lib/firebase';
 import { PK_COIN_ICON, EASYPAISA_LOGO, JAZZCASH_LOGO, SADAPAY_LOGO, NAYAPAY_LOGO, PK_LOGO_IMAGE } from '../lib/assets';
-import { playDepositSuccessSound, playWithdrawSuccessSound } from '../lib/sound';
+import { playErrorSound, playDepositSuccessSound, playWithdrawSuccessSound } from '../lib/sound';
 import successConfetti from '../assets/success-confetti.json';
 import pendingClock from '../assets/pending-clock.json';
 
@@ -103,23 +103,23 @@ export function Wallet() {
     }
   }, [activeTab, paymentSettings, paymentMethod]);
 
-  const presetAmounts = [100, 300, 500, 1000, 2000, 3000, 5000, 10000];
+  const presetAmounts = [100, 200, 300, 400, 500, 1000, 1500, 2000];
 
   const handleDeposit = async () => {
     if (isSubmitting) return;
 
     const authSuccess = await requirePinAuth();
     if (!authSuccess) {
-      toast.error('Authentication failed.');
+      playErrorSound(); toast.error('Authentication failed.');
       return;
     }
 
     if (!amount || Number(amount) <= 0) {
-      toast.error('Please enter a valid amount');
+      playErrorSound(); toast.error('Please enter a valid amount');
       return;
     }
     if (!screenshotBase64) {
-      toast.error('Please upload a screenshot of your payment');
+      playErrorSound(); toast.error('Please upload a screenshot of your payment');
       return;
     }
     setIsSubmitting(true);
@@ -144,7 +144,7 @@ export function Wallet() {
       setAmount('');
       setScreenshotBase64('');
     } catch (err: any) {
-      toast.error(err.message || 'Deposit failed');
+      playErrorSound(); toast.error(err.message || 'Deposit failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -160,7 +160,7 @@ export function Wallet() {
     if (isSubmitting) return;
 
     if (paymentSettings?.withdrawalEnabled === false) {
-      toast.error('Withdrawals are temporarily disabled.');
+      playErrorSound(); toast.error('Withdrawals are temporarily disabled.');
       resetWithdrawInputs();
       return;
     }
@@ -174,27 +174,27 @@ export function Wallet() {
     };
 
     if (!isMethodEnabled()) {
-      toast.error('Selected withdrawal method is currently unavailable.');
+      playErrorSound(); toast.error('Selected withdrawal method is currently unavailable.');
       resetWithdrawInputs();
       return;
     }
 
     // Minimum withdrawal check: Keep inputs intact as requested by user
     if (!amount || Number(amount) < 100) {
-      toast.error('Minimum withdrawal is 100 PKR.');
+      playErrorSound(); toast.error('Minimum withdrawal is 100 PKR.');
       return;
     }
 
     // Account details validation: Resets inputs on error
     if (!withdrawTitle.trim() || !withdrawNumber.trim()) {
-      toast.error('Please enter account details.');
+      playErrorSound(); toast.error('Please enter account details.');
       resetWithdrawInputs();
       return;
     }
 
     // Insufficient balance validation: Resets inputs on error
     if ((currentUser?.walletBalance || 0) < Number(amount)) {
-      toast.error('Insufficient balance for withdrawal.');
+      playErrorSound(); toast.error('Insufficient balance for withdrawal.');
       resetWithdrawInputs();
       return;
     }
@@ -202,7 +202,7 @@ export function Wallet() {
     // PIN Authentication: Resets inputs on error
     const authSuccess = await requirePinAuth();
     if (!authSuccess) {
-      toast.error('Authentication failed.');
+      playErrorSound(); toast.error('Authentication failed.');
       resetWithdrawInputs();
       return;
     }
@@ -247,7 +247,7 @@ export function Wallet() {
       playWithdrawSuccessSound();
       resetWithdrawInputs();
     } catch (err: any) {
-      toast.error(err.message || 'Withdrawal request failed');
+      playErrorSound(); toast.error(err.message || 'Withdrawal request failed');
       resetWithdrawInputs();
     } finally {
       setIsSubmitting(false);
@@ -258,7 +258,7 @@ export function Wallet() {
     if (isSubmitting) return;
     const cleanCode = promoCode.trim().toUpperCase();
     if (!cleanCode || cleanCode.length < 3) {
-      toast.error('Please enter a valid promo code');
+      playErrorSound(); toast.error('Please enter a valid promo code');
       return;
     }
     
@@ -290,7 +290,7 @@ export function Wallet() {
           const expDate = new Date(promoData.expireDate);
           const now = new Date();
           if (now > expDate) {
-            toast.error('This promo code has expired!');
+            playErrorSound(); toast.error('This promo code has expired!');
             setPromoCode('');
             setIsSubmitting(false);
             return;
@@ -302,7 +302,7 @@ export function Wallet() {
         const redeemers = promoData.redeemers || {};
         const redeemCount = Object.keys(redeemers).length;
         if (redeemCount >= limitVal) {
-          toast.error('This promo code has reached its usage limit!');
+          playErrorSound(); toast.error('This promo code has reached its usage limit!');
           setPromoCode('');
           setIsSubmitting(false);
           return;
@@ -312,7 +312,7 @@ export function Wallet() {
         const userId = currentUser?.uid || currentUser?.id || 'unknown';
         const userRedeemed: string[] = currentUser?.redeemedPromos || [];
         if (userRedeemed.includes(cleanCode) || (promoData.redeemers && promoData.redeemers[userId])) {
-          toast.error('You have already redeemed this promo code!');
+          playErrorSound(); toast.error('You have already redeemed this promo code!');
           setPromoCode('');
           setIsSubmitting(false);
           return;
@@ -322,7 +322,7 @@ export function Wallet() {
         const deviceRedeemedRaw = localStorage.getItem('device_redeemed_promos');
         const deviceRedeemedList: string[] = deviceRedeemedRaw ? JSON.parse(deviceRedeemedRaw) : [];
         if (deviceRedeemedList.includes(cleanCode)) {
-          toast.error('You have already redeemed this promo code!');
+          playErrorSound(); toast.error('You have already redeemed this promo code!');
           setPromoCode('');
           setIsSubmitting(false);
           return;
@@ -383,11 +383,11 @@ export function Wallet() {
         playDepositSuccessSound();
         setPromoCode('');
       } else {
-        toast.error('Invalid or expired promo code.');
+        playErrorSound(); toast.error('Invalid or expired promo code.');
         setPromoCode('');
       }
     } catch (err: any) {
-      toast.error(err.message || 'Redemption failed');
+      playErrorSound(); toast.error(err.message || 'Redemption failed');
       setPromoCode('');
     } finally {
       setIsSubmitting(false);
@@ -535,49 +535,56 @@ export function Wallet() {
               </motion.div>
 
               {/* Enter Amount */}
-              <motion.div variants={item}>
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">{t("Enter Amount")}</h3>
-                <div className="flex space-x-3">
-                  <div className="flex-1 relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <img src={PK_COIN_ICON} alt="Coin" className="w-5 h-5 object-contain" />
-                    </div>
-                    <input 
-                      type="number" 
-                      min="1"
-                      step="1"
-                      inputMode="numeric"
-                      value={amount}
-                      onKeyDown={(e) => {
-                        if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E' || e.key === '.') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onChange={(e) => {
-                        const clean = e.target.value.replace(/[^0-9]/g, '');
-                        setAmount(clean);
-                      }}
-                      onPaste={(e) => {
-                        const pasteData = e.clipboardData.getData('text');
-                        if (/[^0-9]/.test(pasteData)) {
-                          e.preventDefault();
-                          const clean = pasteData.replace(/[^0-9]/g, '');
-                          if (clean) setAmount(clean);
-                        }
-                      }}
-                      className="w-full h-full bg-pk-card border border-pk-border rounded-xl pl-10 pr-4 text-white focus:border-yellow-500 outline-none" 
-                      placeholder={t("Enter Amount (PKR)")}
-                    />
+              <motion.div variants={item} className="space-y-2.5">
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{t("Enter Amount")}</h3>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <img src={PK_COIN_ICON} alt="Coin" className="w-5 h-5 object-contain" />
                   </div>
-                  <div className="w-[180px] grid grid-cols-4 gap-1.5">
-                    {presetAmounts.map(a => (
-                      <button key={a} onClick={() => setAmount(a.toString())} className="bg-pk-card border border-pk-border hover:border-yellow-500 rounded text-[10px] font-semibold py-1">
-                        {a}
-                      </button>
-                    ))}
-                  </div>
+                  <input 
+                    type="number" 
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={amount}
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E' || e.key === '.') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/[^0-9]/g, '');
+                      setAmount(clean);
+                    }}
+                    onPaste={(e) => {
+                      const pasteData = e.clipboardData.getData('text');
+                      if (/[^0-9]/.test(pasteData)) {
+                        e.preventDefault();
+                        const clean = pasteData.replace(/[^0-9]/g, '');
+                        if (clean) setAmount(clean);
+                      }
+                    }}
+                    className="w-full h-12 bg-pk-card border border-pk-border rounded-xl pl-11 pr-4 text-white focus:border-yellow-500 outline-none font-medium text-sm" 
+                    placeholder={t("Enter Amount (PKR)")}
+                  />
                 </div>
-                <div className="flex items-center justify-between mt-2 px-2">
+                <div className="grid grid-cols-4 gap-2">
+                  {presetAmounts.map(a => (
+                    <button 
+                      key={a} 
+                      type="button"
+                      onClick={() => setAmount(a.toString())} 
+                      className={`py-2.5 px-2 rounded-xl border text-xs sm:text-sm font-bold transition-all text-center ${
+                        amount === a.toString() 
+                          ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)]' 
+                          : 'bg-pk-card border-pk-border text-zinc-200 hover:border-yellow-500/50 hover:text-white'
+                      }`}
+                    >
+                      {a}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between pt-0.5 px-1">
                   <span className="text-xs text-zinc-400">{t("You will receive")}: <span className="text-yellow-500 font-bold ml-1 flex items-center inline-flex"><img src={PK_COIN_ICON} alt="Coin" className="w-4 h-4 object-contain inline-block mr-1" /> {amount || '0'} {t("Coins")}</span></span>
                   <span className="text-[10px] text-zinc-500">1 Coin = 1 PKR</span>
                 </div>
@@ -608,7 +615,7 @@ export function Wallet() {
                   if (e.target.files?.[0]) { 
                     const file = e.target.files[0];
                     if (file.size > 2 * 1024 * 1024) {
-                       toast.error('Image is too large (max 2MB)');
+                       playErrorSound(); toast.error('Image is too large (max 2MB)');
                        return;
                     }
                     const reader = new FileReader();
@@ -822,47 +829,54 @@ export function Wallet() {
               </motion.div>
 
               {/* Enter Withdraw Amount */}
-              <motion.div variants={item}>
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">{t("Enter Withdraw Amount")}</h3>
-                <div className="flex space-x-3">
-                  <div className="flex-1 relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <img src={PK_COIN_ICON} alt="Coin" className="w-5 h-5 object-contain" />
-                    </div>
-                    <input 
-                      type="number" 
-                      min="1"
-                      step="1"
-                      inputMode="numeric"
-                      value={amount}
-                      onKeyDown={(e) => {
-                        if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E' || e.key === '.') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onChange={(e) => {
-                        const clean = e.target.value.replace(/[^0-9]/g, '');
-                        setAmount(clean);
-                      }}
-                      onPaste={(e) => {
-                        const pasteData = e.clipboardData.getData('text');
-                        if (/[^0-9]/.test(pasteData)) {
-                          e.preventDefault();
-                          const clean = pasteData.replace(/[^0-9]/g, '');
-                          if (clean) setAmount(clean);
-                        }
-                      }}
-                      className="w-full h-full bg-pk-card border border-pk-border rounded-xl pl-10 pr-4 text-white focus:border-yellow-500 outline-none" 
-                      placeholder={t("Enter Amount (PKR)")}
-                    />
+              <motion.div variants={item} className="space-y-2.5">
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">{t("Enter Withdraw Amount")}</h3>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <img src={PK_COIN_ICON} alt="Coin" className="w-5 h-5 object-contain" />
                   </div>
-                  <div className="w-[180px] grid grid-cols-4 gap-1.5">
-                    {presetAmounts.map(a => (
-                      <button key={a} onClick={() => setAmount(a.toString())} className="bg-pk-card border border-pk-border hover:border-yellow-500 rounded text-[10px] font-semibold py-1">
-                        {a}
-                      </button>
-                    ))}
-                  </div>
+                  <input 
+                    type="number" 
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={amount}
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E' || e.key === '.') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/[^0-9]/g, '');
+                      setAmount(clean);
+                    }}
+                    onPaste={(e) => {
+                      const pasteData = e.clipboardData.getData('text');
+                      if (/[^0-9]/.test(pasteData)) {
+                        e.preventDefault();
+                        const clean = pasteData.replace(/[^0-9]/g, '');
+                        if (clean) setAmount(clean);
+                      }
+                    }}
+                    className="w-full h-12 bg-pk-card border border-pk-border rounded-xl pl-11 pr-4 text-white focus:border-yellow-500 outline-none font-medium text-sm" 
+                    placeholder={t("Enter Amount (PKR)")}
+                  />
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {presetAmounts.map(a => (
+                    <button 
+                      key={a} 
+                      type="button"
+                      onClick={() => setAmount(a.toString())} 
+                      className={`py-2.5 px-2 rounded-xl border text-xs sm:text-sm font-bold transition-all text-center ${
+                        amount === a.toString() 
+                          ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.2)]' 
+                          : 'bg-pk-card border-pk-border text-zinc-200 hover:border-yellow-500/50 hover:text-white'
+                      }`}
+                    >
+                      {a}
+                    </button>
+                  ))}
                 </div>
               </motion.div>
 

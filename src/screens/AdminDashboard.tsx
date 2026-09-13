@@ -13,7 +13,8 @@ import {
   FileText, UserPlus, FileSearch, Power, Medal, Tag,
   FileClock, Shield, Copy, Sliders, ShieldCheck, LogOut,
   AlertTriangle, Coins as CoinsIcon, Play, Link2, Send,
-  Mail, Phone, User as UserIcon, Megaphone, BellRing
+  Mail, Phone, User as UserIcon, Megaphone, BellRing,
+  CalendarClock
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, 
@@ -27,6 +28,7 @@ import toast from 'react-hot-toast';
 import { Tournament, User, Transaction, Banner, AppSettings, AdminRole, SupportMessage, SupportChatRoom, Team, Announcement, AppPopup } from '../types';
 import { format } from 'date-fns';
 import { PinResetRequestsManager } from '../components/PinResetRequestsManager';
+import { ScheduledMatchesTab } from '../components/admin/ScheduledMatchesTab';
 import { PK_COIN_ICON, PK_LOGO_IMAGE, DEFAULT_AVATAR, EASYPAISA_LOGO, JAZZCASH_LOGO, SADAPAY_LOGO, NAYAPAY_LOGO } from '../lib/assets';
 import { 
   collection, 
@@ -141,6 +143,35 @@ const AdminSupportView = ({ onMenuClick }: { onMenuClick?: () => void }) => {
         lastTimestamp: Date.now(),
         lastMessageSenderId: 'admin'
       }, { merge: true });
+
+      // Send push notification & in-app notification to user
+      const messageContent = trimmedText || (imageUrl ? '📷 Admin sent an image attachment.' : 'Admin sent you a message');
+      try {
+        await push(ref(db, `userNotifications/${selectedRoomId}`), {
+          title: "ADMIN MSG",
+          message: messageContent,
+          createdAt: Date.now()
+        });
+
+        // Send OneSignal Push Notification if configured
+        const settingsSnap = await get(ref(db, 'settings'));
+        const appSettings = settingsSnap.val();
+        if (appSettings?.onesignalAppId && appSettings?.onesignalRestApiKey) {
+          await fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              appId: appSettings.onesignalAppId,
+              restApiKey: appSettings.onesignalRestApiKey,
+              title: "ADMIN MSG",
+              message: messageContent,
+              include_external_user_ids: [selectedRoomId]
+            }),
+          });
+        }
+      } catch (notifErr) {
+        console.error('Failed to send admin push notification:', notifErr);
+      }
 
     } catch (err) {
       console.error('Error sending message:', err);
@@ -579,7 +610,15 @@ const Sidebar = ({
   }: any) => {
     const filteredNavItems = useMemo(() => {
       if (!currentAdminRole) return navItems;
-      return navItems.filter((item: any) => currentAdminRole.permissions[item.id as keyof typeof currentAdminRole.permissions]);
+      return navItems.filter((item: any) => {
+        if (item.id === 'schedule_matches') {
+          if (currentAdminRole.permissions.schedule_matches !== undefined) {
+            return !!currentAdminRole.permissions.schedule_matches;
+          }
+          return currentAdminRole.permissions.tournaments ?? true;
+        }
+        return !!currentAdminRole.permissions[item.id as keyof typeof currentAdminRole.permissions];
+      });
     }, [currentAdminRole, navItems]);
 
     return (
@@ -593,24 +632,42 @@ const Sidebar = ({
           <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-[0.2em] mt-1 text-center">Battle Beyond Limits</p>
         </div>
 
-          <div className="flex-1 overflow-y-auto py-4 space-y-1 px-3 custom-scrollbar" style={{ scrollBehavior: 'smooth' }}>
-          {filteredNavItems.map((item: any) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                setIsMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center space-x-4 px-4 py-3.5 rounded-xl text-xs transition-all duration-300 ${
-                activeTab === item.id 
-                  ? 'bg-yellow-500/10 border border-yellow-500/30 shadow-[inset_0_0_15px_rgba(234,179,8,0.1)] text-yellow-500 font-bold' 
-                  : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 font-medium'
-              }`}
-            >
-              <item.icon className={`w-4 h-4 ${activeTab === item.id ? 'text-yellow-500' : 'text-zinc-500'}`} />
-              <span>{item.label}</span>
-            </button>
-          ))}
+        <div className="flex-1 overflow-y-auto py-4 space-y-1 px-3 custom-scrollbar" style={{ scrollBehavior: 'smooth' }}>
+          {filteredNavItems.map((item: any) => {
+            const hasCount = typeof item.count === 'number' && item.count > 0;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs transition-all duration-300 ${
+                  activeTab === item.id 
+                    ? 'bg-yellow-500/10 border border-yellow-500/30 shadow-[inset_0_0_15px_rgba(234,179,8,0.1)] text-yellow-500 font-bold' 
+                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 font-medium'
+                }`}
+              >
+                <div className="flex items-center space-x-3 min-w-0">
+                  <item.icon className={`w-4 h-4 shrink-0 ${activeTab === item.id ? 'text-yellow-500' : 'text-zinc-500'}`} />
+                  <span className="truncate">{item.label}</span>
+                </div>
+                {hasCount && (
+                  <span className={`ml-2 text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 shadow-sm transition-all ${
+                    item.id === 'withdrawals' || item.id === 'pin_resets'
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                      : item.id === 'support'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse'
+                      : item.id === 'transactions' || item.id === 'schedule_matches'
+                      ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/40'
+                      : 'bg-zinc-800 text-yellow-400 border border-zinc-700'
+                  }`}>
+                    {item.count > 99 ? '99+' : item.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div className="p-4 border-t border-yellow-500/10 bg-[#0a0a0a]">
@@ -676,7 +733,7 @@ const PrizeDistributionEditor = ({ match, setMatch }: { match: any, setMatch: (m
   };
 
   return (
-    <div className="col-span-2 space-y-3 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/50">
+    <div className="col-span-1 md:col-span-2 space-y-3 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/50">
       <label className="block text-xs font-bold text-yellow-500 uppercase tracking-widest">Prize Distribution</label>
       
       <div className="space-y-2">
@@ -971,10 +1028,11 @@ export const AdminDashboard: React.FC = () => {
   
 
   useEffect(() => {
-     
-       
-     
-     
+    (window as any).__IS_ADMIN_USER__ = true;
+    try {
+      localStorage.setItem('pk_is_admin', 'true');
+      localStorage.setItem('pk_user_role', 'admin');
+    } catch (e) {}
   }, []);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -1044,6 +1102,78 @@ export const AdminDashboard: React.FC = () => {
   
   // Modals & Form State
   const [isCreateMatchModalOpen, setIsCreateMatchModalOpen] = useState(false);
+  const [isSchedulingMatch, setIsSchedulingMatch] = useState(false);
+
+  // Helper to maintain admin's configured upload time (hours & minutes), auto-advancing day to next day if passed
+  const getUpcomingScheduleDateTime = (inputStr?: string | null): string => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const now = Date.now();
+    let hours = 18;
+    let minutes = 30;
+
+    const savedPreferredTime = localStorage.getItem('admin_schedule_preferred_time');
+    if (savedPreferredTime && savedPreferredTime.includes(':')) {
+      const parts = savedPreferredTime.split(':');
+      hours = parseInt(parts[0], 10) || 18;
+      minutes = parseInt(parts[1], 10) || 30;
+    }
+
+    if (inputStr) {
+      const d = new Date(inputStr);
+      if (!isNaN(d.getTime())) {
+        hours = d.getHours();
+        minutes = d.getMinutes();
+        if (d.getTime() > now) {
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(hours)}:${pad(minutes)}`;
+        }
+      }
+    }
+
+    // If inputStr is missing or date is in the past:
+    // Retain the EXACT hours and minutes chosen by admin, auto-set day to next upcoming day!
+    const target = new Date();
+    target.setHours(hours, minutes, 0, 0);
+    if (target.getTime() <= now) {
+      target.setDate(target.getDate() + 1);
+    }
+    return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T${pad(hours)}:${pad(minutes)}`;
+  };
+
+  const [scheduleUploadDateTime, setScheduleUploadDateTime] = useState<string>(() => {
+    const saved = localStorage.getItem('admin_schedule_upload_datetime');
+    return getUpcomingScheduleDateTime(saved);
+  });
+  const [publishOnTime, setPublishOnTime] = useState<boolean>(() => {
+    const saved = localStorage.getItem('admin_schedule_publish_on_time');
+    if (saved !== null) return saved === 'true';
+    return true;
+  });
+
+  const handleSetScheduleUploadDateTime = (val: string) => {
+    setScheduleUploadDateTime(val);
+    try {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const timeStr = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        localStorage.setItem('admin_schedule_preferred_time', timeStr);
+      }
+      localStorage.setItem('admin_schedule_upload_datetime', val);
+      update(ref(db, 'appSettings'), { 
+        scheduleUploadDateTime: val,
+        schedulePreferredTime: !isNaN(new Date(val).getTime()) ? `${new Date(val).getHours()}:${new Date(val).getMinutes()}` : undefined
+      });
+    } catch (e) {}
+  };
+
+  const handleSetPublishOnTime = (val: boolean) => {
+    setPublishOnTime(val);
+    try {
+      localStorage.setItem('admin_schedule_publish_on_time', String(val));
+      update(ref(db, 'appSettings'), { schedulePublishOnTime: val });
+    } catch (e) {}
+  };
+  const [, setScheduleTick] = useState(0);
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
   const [isCoinsModalOpen, setIsCoinsModalOpen] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState('');
@@ -1102,7 +1232,7 @@ export const AdminDashboard: React.FC = () => {
   const [matchPlayers, setMatchPlayers] = useState<any[]>([]);
 
   const [newMatch, setNewMatch] = useState({
-    title: '', type: 'TDM', mode: 'SOLO', time: '', date: '', entryFee: 0, prizePool: 0, map: 'Bermuda', spotsTotal: 48, perKill: 0, image: '', prizeDistribution: []
+    title: '', type: 'TDM', mode: 'SOLO', time: '', date: '', entryFee: 0, prizePool: 0, map: 'TDM', spotsTotal: 48, perKill: 0, image: '', prizeDistribution: []
   });
   const [isUploadingImg, setIsUploadingImg] = useState(false);
 
@@ -1132,11 +1262,13 @@ export const AdminDashboard: React.FC = () => {
   // Data State
   const [users, setUsers] = useState<User[]>([]);
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [notificationHistory, setNotificationHistory] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [adminRoles, setAdminRoles] = useState<AdminRole[]>([]);
   const [pinResetRequests, setPinResetRequests] = useState<any[]>([]);
   const [currentAdminRole, setCurrentAdminRole] = useState<AdminRole | null>(null);
+  const [supportUnreadCount, setSupportUnreadCount] = useState<number>(0);
 
   // Computed Real Data
   const totalUsers = users.length;
@@ -1218,6 +1350,17 @@ export const AdminDashboard: React.FC = () => {
       setIsAdminAuthenticated(true);
     }
 
+    const historyRef = ref(db, 'adminNotificationHistory');
+    onValue(historyRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const history = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+        setNotificationHistory(history.sort((a, b) => b.createdAt - a.createdAt));
+      } else {
+        setNotificationHistory([]);
+      }
+    });
+
     const usersRef = ref(db, 'users');
     const tourRef = ref(db, 'tournaments');
     const transRef = ref(db, 'transactions');
@@ -1240,7 +1383,18 @@ export const AdminDashboard: React.FC = () => {
 
     const unsubSettings = onValue(settingsRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) setSettings(data);
+      if (data) {
+        setSettings(data);
+        if (data.scheduleUploadDateTime) {
+          const upcoming = getUpcomingScheduleDateTime(data.scheduleUploadDateTime);
+          setScheduleUploadDateTime(upcoming);
+          localStorage.setItem('admin_schedule_upload_datetime', upcoming);
+        }
+        if (typeof data.schedulePublishOnTime === 'boolean') {
+          setPublishOnTime(data.schedulePublishOnTime);
+          localStorage.setItem('admin_schedule_publish_on_time', String(data.schedulePublishOnTime));
+        }
+      }
     });
 
     const paymentSettingsRef = ref(db, 'paymentSettings');
@@ -1347,6 +1501,22 @@ export const AdminDashboard: React.FC = () => {
       }
     });
 
+    const COLLECTION_NAME = 'PK-Arena_Support_ChaT';
+    const unsubSupportRooms = onSnapshot(collection(firestore, COLLECTION_NAME), (snapshot) => {
+      let count = 0;
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.unreadCount && Number(data.unreadCount) > 0) {
+          count += Number(data.unreadCount);
+        } else if (data.lastMessageSenderId && data.lastMessageSenderId !== 'admin') {
+          count += 1;
+        }
+      });
+      setSupportUnreadCount(count);
+    }, (err) => {
+      console.error("Support unread listener error:", err);
+    });
+
     return () => {
       unsubUsers();
       unsubTour();
@@ -1360,6 +1530,7 @@ export const AdminDashboard: React.FC = () => {
       unsubPinResets();
       unsubOwner();
       unsubPromoCodes();
+      unsubSupportRooms();
     };
   }, [currentUser]);
 
@@ -1371,25 +1542,11 @@ export const AdminDashboard: React.FC = () => {
       if (savedKey) {
         const devId = getAdminDeviceId();
 
-        if (ownerKey && savedKey === ownerKey) {
-          // Check if device matches
-          const ownerSnap = await get(ref(db, 'owner'));
-          let boundDev = null;
-          if (ownerSnap.exists()) {
-            const v = ownerSnap.val();
-            if (v && typeof v === 'object') boundDev = v.deviceId || null;
-          }
-          if (boundDev && boundDev !== devId) {
-            localStorage.removeItem('admin_access_key');
-            setIsAdminAuthenticated(false);
-            setIsCheckingAuth(false);
-            toast.error('This Admin Key is locked to another device!');
-            return;
-          }
-
-          setIsAdminAuthenticated(true);
-          setCurrentAdminRole(null);
+        if (ownerKey && savedKey.trim() === ownerKey.trim()) {
+          localStorage.removeItem('admin_access_key');
+          setIsAdminAuthenticated(false);
           setIsCheckingAuth(false);
+          toast.error('Invalid Administrator Key');
           return;
         }
         const role = adminRoles.find(r => r.adminKey === savedKey);
@@ -1447,6 +1604,16 @@ export const AdminDashboard: React.FC = () => {
       setNewBanner({ imageUrl: '', link: '', type: 'home', isActive: true });
     } catch (err) {
       toast.error('Failed to save banner');
+    }
+  };
+
+  const handleDeleteBanner = async (banner: Banner) => {
+    if (!window.confirm(`Are you sure you want to delete this banner?`)) return;
+    try {
+      await remove(ref(db, `banners/${banner.id}`));
+      toast.success('Banner deleted successfully');
+    } catch (err) {
+      toast.error('Failed to delete banner');
     }
   };
 
@@ -1582,6 +1749,48 @@ export const AdminDashboard: React.FC = () => {
     });
   };
 
+  const handleClearAllNotifications = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'CLEAR ALL NOTIFICATIONS',
+      message: 'Are you sure you want to delete all active notifications for all users? This will instantly remove them from all user inboxes. This action cannot be undone.',
+      type: 'danger',
+      confirmText: 'Yes, Delete All',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await remove(ref(db, 'notifications'));
+          await remove(ref(db, 'userNotifications'));
+          toast.success("All notifications deleted for all users!");
+        } catch (err) {
+          console.error("Failed to delete notifications:", err);
+          toast.error("Failed to delete notifications");
+        }
+      }
+    });
+  };
+
+  const handleClearNotificationHistory = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'CLEAR NOTIFICATION HISTORY',
+      message: 'Are you sure you want to clear the admin notification history logs? This action cannot be undone.',
+      type: 'danger',
+      confirmText: 'Yes, Clear History',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await remove(ref(db, 'adminNotificationHistory'));
+          setNotificationHistory([]);
+          toast.success("Notification history cleared successfully!");
+        } catch (err) {
+          console.error("Failed to clear notification history:", err);
+          toast.error("Failed to clear notification history");
+        }
+      }
+    });
+  };
+
   const handleSendPushNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!notificationTitle || !notificationMessage) {
@@ -1614,6 +1823,13 @@ export const AdminDashboard: React.FC = () => {
           url: notificationUrl || '',
           createdAt: Date.now()
         });
+        await push(ref(db, 'adminNotificationHistory'), {
+          title: notificationTitle,
+          message: notificationMessage,
+          url: notificationUrl || '',
+          type: 'MANUAL',
+          createdAt: Date.now()
+        });
         toast.success('Notification sent successfully!');
         setNotificationTitle('');
         setNotificationMessage('');
@@ -1631,44 +1847,22 @@ export const AdminDashboard: React.FC = () => {
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const devId = getAdminDeviceId();
+    const enteredKey = adminKey.trim();
 
-    if (ownerKey && adminKey === ownerKey) {
-      try {
-        const ownerRef = ref(db, 'owner');
-        const ownerSnap = await get(ownerRef);
-        let currentBoundDevice = null;
-        if (ownerSnap.exists()) {
-          const ownerVal = ownerSnap.val();
-          if (ownerVal && typeof ownerVal === 'object') {
-            currentBoundDevice = ownerVal.deviceId || null;
-          }
-        }
-
-        if (!currentBoundDevice) {
-          const ownerVal = ownerSnap.val();
-          if (ownerVal && typeof ownerVal === 'object') {
-            await update(ownerRef, { deviceId: devId });
-          } else {
-            const kVal = typeof ownerVal === 'string' ? ownerVal : 'PAKARENA';
-            await set(ownerRef, { key: kVal, deviceId: devId });
-          }
-        } else if (currentBoundDevice !== devId) {
-          toast.error('This Admin Key is locked to another device!');
-          return;
-        }
-
-        setIsAdminAuthenticated(true);
-        setCurrentAdminRole(null);
-        if (rememberMe) { localStorage.setItem('admin_access_key', adminKey); } else { localStorage.removeItem('admin_access_key'); }
-        toast.success('Access Granted - Welcome Master Admin');
-      } catch (err: any) {
-        toast.error(err.message || 'Verification failed');
-      }
+    if (!enteredKey) {
+      toast.error('Please enter an Administrator Key');
       return;
     }
 
-    // Check custom roles
-    const matchedRole = adminRoles.find(r => r.adminKey === adminKey);
+    // Owner key is strictly prohibited from logging into Admin Dashboard
+    if (ownerKey && enteredKey === ownerKey.trim()) {
+      toast.error('Invalid Administrator Key');
+      setAdminKey('');
+      return;
+    }
+
+    // Check custom roles (Admin keys)
+    const matchedRole = adminRoles.find(r => r.adminKey === enteredKey);
     if (matchedRole) {
       try {
         const currentBoundDevice = matchedRole.deviceId || null;
@@ -1681,10 +1875,19 @@ export const AdminDashboard: React.FC = () => {
 
         setIsAdminAuthenticated(true);
         setCurrentAdminRole(matchedRole);
-        if (rememberMe) { localStorage.setItem('admin_access_key', adminKey); } else { localStorage.removeItem('admin_access_key'); }
+        if (rememberMe) { 
+          localStorage.setItem('admin_access_key', enteredKey); 
+        } else { 
+          localStorage.removeItem('admin_access_key'); 
+        }
         
         // Set active tab to the first allowed permission
-        const allowedTabs = navItems.filter(item => matchedRole.permissions[item.id as keyof typeof matchedRole.permissions]);
+        const allowedTabs = navItems.filter(item => {
+          if (item.id === 'scheduled_matches') {
+            return matchedRole.permissions.schedule_matches ?? matchedRole.permissions.tournaments ?? true;
+          }
+          return matchedRole.permissions[item.id as keyof typeof matchedRole.permissions];
+        });
         if (allowedTabs.length > 0) setActiveTab(allowedTabs[0].id);
         
         toast.success(`Access Granted - Welcome ${matchedRole.adminName}`);
@@ -1793,20 +1996,91 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     try {
       const newTourRef = push(ref(db, 'tournaments'));
-      await set(newTourRef, {
+      const isScheduled = isSchedulingMatch;
+      const matchData: any = {
         id: newTourRef.key,
         ...newMatch,
-        status: 'UPCOMING',
         spotsFilled: 0,
         createdAt: new Date().toISOString()
-      });
-      toast.success('Match created successfully!');
+      };
+
+      if (isScheduled) {
+        matchData.status = 'SCHEDULED';
+        matchData.isScheduled = true;
+        matchData.scheduledPublishTime = scheduleUploadDateTime;
+        matchData.autoPublishOnTime = publishOnTime;
+      } else {
+        matchData.status = 'UPCOMING';
+        matchData.isScheduled = false;
+      }
+
+      await set(newTourRef, matchData);
+      toast.success(isScheduled ? 'Match scheduled successfully! Will auto-publish at scheduled time.' : 'Match created successfully!');
       setIsCreateMatchModalOpen(false);
+      setIsSchedulingMatch(false);
       setNewMatch({ title: '', type: 'TDM', mode: 'SOLO', time: '', date: '', entryFee: 0, prizePool: 0, map: 'Bermuda', spotsTotal: 48, perKill: 0, prizeDistribution: [] });
     } catch (err) {
       toast.error('Failed to create match');
     }
   };
+
+  const handlePublishMatchNow = async (matchId: string, matchTitle?: string) => {
+    try {
+      await update(ref(db, `tournaments/${matchId}`), {
+        isScheduled: false,
+        status: 'UPCOMING',
+        publishedAt: new Date().toISOString()
+      });
+      toast.success(`Match "${matchTitle || 'Scheduled Match'}" published! It is now LIVE in tournaments.`);
+    } catch (err) {
+      toast.error('Failed to publish match');
+    }
+  };
+
+  // Real-time ticking for live schedule countdown
+  useEffect(() => {
+    const timer = setInterval(() => setScheduleTick(t => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Background auto-publisher for scheduled matches when upload time arrives
+  useEffect(() => {
+    const checkScheduledMatches = async () => {
+      const now = Date.now();
+      const scheduledList = tournaments.filter(
+        t => !t.isDeleted && (t.isScheduled || t.status === 'SCHEDULED') && t.autoPublishOnTime !== false && t.scheduledPublishTime
+      );
+
+      for (const t of scheduledList) {
+        const schedTime = new Date(t.scheduledPublishTime).getTime();
+        if (!isNaN(schedTime) && schedTime <= now) {
+          try {
+            await update(ref(db, `tournaments/${t.id}`), {
+              isScheduled: false,
+              status: 'UPCOMING',
+              publishedAt: new Date().toISOString()
+            });
+            toast.success(`Scheduled match "${t.title}" reached upload time and is now LIVE in tournaments!`);
+          } catch (err) {
+            console.error('Failed to auto-publish match:', err);
+          }
+        }
+      }
+
+      // Auto rollover upload time to next day while keeping the exact same time when reached
+      const currentTarget = new Date(scheduleUploadDateTime).getTime();
+      if (!isNaN(currentTarget) && currentTarget <= now) {
+        const nextUpcoming = getUpcomingScheduleDateTime(scheduleUploadDateTime);
+        if (nextUpcoming !== scheduleUploadDateTime) {
+          handleSetScheduleUploadDateTime(nextUpcoming);
+        }
+      }
+    };
+
+    checkScheduledMatches();
+    const interval = setInterval(checkScheduledMatches, 10000);
+    return () => clearInterval(interval);
+  }, [tournaments]);
 
   const handleUpdateMatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2400,16 +2674,37 @@ export const AdminDashboard: React.FC = () => {
       });
   };
 
-  const navItems = [
+  const pendingDepositsCount = useMemo(() => {
+    return transactions.filter(t => (t.type === 'deposit' || t.type === 'DEPOSIT') && (t.status === 'pending' || t.status === 'PENDING')).length;
+  }, [transactions]);
+
+  const pendingWithdrawalsCount = useMemo(() => {
+    return transactions.filter(t => (t.type === 'withdrawal' || t.type === 'withdraw' || t.type === 'WITHDRAWAL' || t.type === 'WITHDRAW') && (t.status === 'pending' || t.status === 'PENDING')).length;
+  }, [transactions]);
+
+  const activeTournamentsCount = useMemo(() => {
+    return tournaments.filter(t => !t.isDeleted && !t.isScheduled && (t.status === 'UPCOMING' || t.status === 'LIVE' || t.status === 'IN-PROGRESS')).length;
+  }, [tournaments]);
+
+  const scheduledMatchesCount = useMemo(() => {
+    return tournaments.filter(t => !t.isDeleted && (t.isScheduled || t.status === 'SCHEDULED')).length;
+  }, [tournaments]);
+
+  const pendingPinResetsCount = useMemo(() => {
+    return pinResetRequests.filter((r: any) => r.status === 'PENDING' || !r.status || r.status === 'pending').length;
+  }, [pinResetRequests]);
+
+  const navItems = useMemo(() => [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'support', label: 'Support Chat', icon: MessageSquare },
+    { id: 'support', label: 'Support Chat', icon: MessageSquare, count: supportUnreadCount },
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'tournaments', label: 'Tournaments', icon: Trophy },
+    { id: 'schedule_matches', label: 'Schedule Matches', icon: CalendarClock, count: scheduledMatchesCount },
+    { id: 'tournaments', label: 'Tournaments', icon: Trophy, count: activeTournamentsCount },
     { id: 'results', label: 'Result History', icon: Award },
     { id: 'announcements', label: 'Announcements', icon: Megaphone },
     { id: 'popups', label: 'Popups', icon: BellRing },
-    { id: 'transactions', label: 'Deposits', icon: CreditCard },
-    { id: 'withdrawals', label: 'Withdrawals', icon: DollarSign },
+    { id: 'transactions', label: 'Deposits', icon: CreditCard, count: pendingDepositsCount },
+    { id: 'withdrawals', label: 'Withdrawals', icon: DollarSign, count: pendingWithdrawalsCount },
     { id: 'promo_codes', label: 'Promo Codes', icon: Tag },
     { id: 'leaderboard', label: 'Leaderboard', icon: Medal },
     { id: 'referrals', label: 'Referral System', icon: Users },
@@ -2419,8 +2714,15 @@ export const AdminDashboard: React.FC = () => {
     { id: 'payment_settings', label: 'Payment Settings', icon: Sliders },
     { id: 'settings', label: 'App Settings', icon: Settings },
     { id: 'themes', label: 'Themes', icon: Sliders },
-    { id: 'pin_resets', label: 'PIN Resets', icon: Key },
-  ];
+    { id: 'pin_resets', label: 'PIN Resets', icon: Key, count: pendingPinResetsCount },
+  ], [
+    supportUnreadCount,
+    scheduledMatchesCount,
+    activeTournamentsCount,
+    pendingDepositsCount,
+    pendingWithdrawalsCount,
+    pendingPinResetsCount
+  ]);
 
   if (!isAdminAuthenticated) {
     if (isCheckingAuth) {
@@ -2606,6 +2908,47 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const formatScheduledTime = (dateTimeStr?: string) => {
+    if (!dateTimeStr) return 'Not set';
+    try {
+      const d = new Date(dateTimeStr);
+      if (isNaN(d.getTime())) return dateTimeStr;
+      return d.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }) + ' at ' + d.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (e) {
+      return dateTimeStr;
+    }
+  };
+
+  const getPublishCountdown = (scheduledPublishTime?: string) => {
+    if (!scheduledPublishTime) return { isReady: false, label: 'No time set' };
+    const target = new Date(scheduledPublishTime).getTime();
+    if (isNaN(target)) return { isReady: false, label: 'Invalid date' };
+    const diff = target - Date.now();
+    if (diff <= 0) {
+      return { isReady: true, label: 'Ready to Publish' };
+    }
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    parts.push(`${hours.toString().padStart(2, '0')}h`);
+    parts.push(`${minutes.toString().padStart(2, '0')}m`);
+    parts.push(`${seconds.toString().padStart(2, '0')}s`);
+
+    return { isReady: false, label: parts.join(' : ') };
+  };
+
   return (
     <div className="min-h-screen bg-[#000000] text-zinc-100 flex font-sans selection:bg-yellow-500/30 overflow-hidden">
       {/* Desktop Sidebar */}
@@ -2702,19 +3045,19 @@ export const AdminDashboard: React.FC = () => {
         </header>
 
         {/* Scrollable Content Container */}
-        <div className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-8 space-y-8 pb-32">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-3 sm:p-6 md:p-8 space-y-8 pb-32">
            {activeTab === 'dashboard' ? (
              <>
                {/* Top Stats Cards */}
                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-                  <StatCard title="TOTAL USERS" value={totalUsers.toLocaleString()} icon={Users} color="text-yellow-500" hideSub />
+                  <StatCard title="TOTAL USERS" value={totalUsers.toLocaleString()} icon={Users} color="text-yellow-500" hideSub onClick={() => setActiveTab('users')} />
                   <StatCard title="ONLINE USERS" value="0" sub="Live" icon={Activity} color="text-green-500" />
-                  <StatCard title="TOTAL MATCHES" value={totalMatches.toLocaleString()} icon={Swords} color="text-white" hideSub />
-                  <StatCard title="LIVE MATCHES" value={liveMatches.toLocaleString()} sub={liveMatches > 0 ? "Live" : ""} icon={MonitorPlay} color={liveMatches > 0 ? "text-red-500" : "text-zinc-500"} />
+                  <StatCard title="TOTAL MATCHES" value={totalMatches.toLocaleString()} icon={Swords} color="text-white" hideSub onClick={() => setActiveTab('tournaments')} />
+                  <StatCard title="LIVE MATCHES" value={liveMatches.toLocaleString()} sub={liveMatches > 0 ? "Live" : ""} icon={MonitorPlay} color={liveMatches > 0 ? "text-red-500" : "text-zinc-500"} onClick={() => setActiveTab('matches')} />
+                  <StatCard title="PENDING DEPOSITS" value={pendingDeposits.toLocaleString()} icon={Wallet} color="text-red-500" hideSub onClick={() => setActiveTab('transactions')} />
+                  <StatCard title="PENDING WITHDRAW" value={pendingWithdraw.toLocaleString()} icon={CreditCard} color="text-orange-500" hideSub onClick={() => setActiveTab('withdrawals')} />
                   <StatCard title="TOTAL REVENUE" value={`PKR ${totalRevenue.toLocaleString()}`} icon={DollarSign} color="text-yellow-500" hideSub />
                   <StatCard title="TOTAL COINS" value={totalCoins.toLocaleString()} icon={Database} color="text-yellow-500" hideSub />
-                  <StatCard title="PENDING DEPOSITS" value={pendingDeposits.toLocaleString()} icon={Wallet} color="text-red-500" hideSub />
-                  <StatCard title="PENDING WITHDRAW" value={pendingWithdraw.toLocaleString()} icon={CreditCard} color="text-orange-500" hideSub />
                </div>
 
                {/* Middle Row */}
@@ -3105,98 +3448,303 @@ export const AdminDashboard: React.FC = () => {
                    ))}
                 </div>
               </div>
+           ) : activeTab === 'schedule_matches' ? (
+               <ScheduledMatchesTab
+                tournaments={tournaments}
+                scheduleUploadDateTime={scheduleUploadDateTime}
+                setScheduleUploadDateTime={handleSetScheduleUploadDateTime}
+                publishOnTime={publishOnTime}
+                setPublishOnTime={handleSetPublishOnTime}
+                formatScheduledTime={formatScheduledTime}
+                getPublishCountdown={getPublishCountdown}
+                onAddMatchClick={() => {
+                  setIsSchedulingMatch(true);
+                  const validSchedStr = getUpcomingScheduleDateTime(scheduleUploadDateTime);
+                  if (validSchedStr !== scheduleUploadDateTime) {
+                    handleSetScheduleUploadDateTime(validSchedStr);
+                  }
+                  const sched = new Date(validSchedStr);
+                  if (!isNaN(sched.getTime())) {
+                    const pad = (n: number) => n.toString().padStart(2, '0');
+                    const dStr = `${sched.getFullYear()}-${pad(sched.getMonth() + 1)}-${pad(sched.getDate())}`;
+                    const tStr = `${pad(sched.getHours())}:${pad(sched.getMinutes())}`;
+                    setNewMatch(prev => ({
+                      ...prev,
+                      date: dStr,
+                      time: tStr
+                    }));
+                  }
+                  setIsCreateMatchModalOpen(true);
+                }}
+                onPublishNow={handlePublishMatchNow}
+                onEditMatch={(m) => {
+                  setEditingMatch(m);
+                  setIsEditMatchModalOpen(true);
+                }}
+                onDeleteMatch={handleDeleteMatch}
+                onViewPlayers={(matchId) => handleViewPlayers(matchId)}
+                onRoomInfo={(match) => {
+                  setSelectedMatchId(match.id);
+                  setRoomData({ roomId: match.roomId || '', password: match.password || '' });
+                  setIsRoomModalOpen(true);
+                }}
+                onRules={(match) => {
+                  setEditingRulesMatch(match);
+                  setMatchRulesText(match.rules || 'Emulators are strictly prohibited. Using them will result in a ban without refund.\nTeam up in solo matches is not allowed. All players involved will be disqualified.\nEnsure your in-game name matches exactly with your profile name.');
+                  setIsRulesModalOpen(true);
+                }}
+              />
            ) : activeTab === 'tournaments' ? (
-             <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                   <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider">Tournaments ({tournaments.length})</h3>
-                   <button onClick={() => setIsCreateMatchModalOpen(true)} className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold text-xs uppercase hover:bg-yellow-400 transition-colors">Create New</button>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {tournaments.filter(t => !t.isDeleted).map((t, i) => (
-                     <div key={t.id || i} className="bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-lg relative group flex flex-col">
-                        <div className="p-4 border-b border-zinc-800 bg-zinc-900/30 flex justify-between items-start">
-                           <div>
-                              <h4 className="font-bold text-white text-sm mb-1">{t.title}</h4>
-                              <div className="flex items-center text-[10px] text-zinc-500 space-x-2">
-                                 <span>#{t.id?.substring(0,8).toUpperCase()}</span>
-                                 <span>•</span>
-                                 <span>{t.date} {t.time}</span>
-                              </div>
-                           </div>
-                           <span className="text-[10px] font-bold px-2 py-1 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">{t.status}</span>
-                        </div>
-                        <div className="p-4 grid grid-cols-2 gap-4 flex-1">
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Entry Fee</div>
-                              <div className="font-bold text-xs">{t.entryFee ? `PKR ${t.entryFee}` : 'FREE'}</div>
-                           </div>
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Prize Pool</div>
-                              <div className="font-bold text-xs text-green-500">{t.prizePool ? `PKR ${t.prizePool}` : 'N/A'}</div>
-                           </div>
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Per Kill</div>
-                              <div className="font-bold text-xs text-yellow-500">PKR {t.perKill || 0}</div>
-                           </div>
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Map</div>
-                              <div className="font-bold text-xs">{t.map}</div>
-                           </div>
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Total Slots</div>
-                              <div className="font-bold text-xs text-white">{t.spotsTotal}</div>
-                           </div>
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Slots Filled</div>
-                              <div className="font-bold text-xs text-yellow-500">{t.spotsFilled || 0}</div>
-                           </div>
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50 col-span-2">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Room ID / Password</div>
-                              <div className="font-mono text-[10px] text-zinc-300">
-                                 {t.roomId ? `${t.roomId} / ${t.password}` : 'Not Assigned'}
-                              </div>
-                           </div>
-                           <div className="bg-zinc-900/30 p-2 rounded-lg border border-zinc-800/50 col-span-2">
-                              <div className="text-[8px] text-zinc-500 uppercase tracking-widest mb-1">Room Status</div>
-                              <div className={`text-[10px] font-black uppercase tracking-widest ${t.roomId ? 'text-green-500' : 'text-red-500'}`}>
-                                 {t.roomId ? 'PASS GIVEN' : 'PENDING'}
-                              </div>
-                           </div>
-                           <div className="col-span-2 pt-2 border-t border-zinc-800 mt-2">
-                              <div className="text-[8px] text-zinc-500 uppercase font-black tracking-widest mb-1 flex items-center">
-                                 <Clock className="w-2.5 h-2.5 mr-1 text-yellow-500" />
-                                 Match Countdown
-                              </div>
-                              <div className="text-lg font-black text-white tabular-nums tracking-tighter">
-                                 {(() => {
-                                   const matchTime = new Date(`${t.date} ${t.time}`).getTime();
-                                   const diff = matchTime - Date.now();
-                                   
-                                   if (diff <= 0) return <span className="text-red-500 text-xs font-black uppercase">MATCH STARTED</span>;
-                                   
-                                   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                                   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                                   const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                                   
-                                   return `${hours.toString().padStart(2, '0')}h : ${minutes.toString().padStart(2, '0')}m : ${seconds.toString().padStart(2, '0')}s`;
-                                 })()}
-                              </div>
-                           </div>
-                        </div>
-                         <div className="p-3 border-t border-zinc-800 bg-zinc-900/30 flex flex-wrap gap-2 justify-end">
-                            <button onClick={() => handleViewPlayers(t.id)} className="px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[10px] font-bold hover:bg-blue-500/20 transition-colors">Players</button>
-                            <button onClick={() => { setSelectedMatchId(t.id); setRoomData({ roomId: t.roomId || '', password: t.password || '' }); setIsRoomModalOpen(true); }} className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700 text-[10px] font-bold hover:bg-zinc-700 transition-colors">Room Info</button>
-                           <button onClick={() => { setEditingRulesMatch(t); setMatchRulesText(t.rules || 'Emulators are strictly prohibited. Using them will result in a ban without refund.\nTeam up in solo matches is not allowed. All players involved will be disqualified.\nEnsure your in-game name matches exactly with your profile name.'); setIsRulesModalOpen(true); }} className="px-3 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 text-[10px] font-bold hover:bg-yellow-500/20 transition-colors">Rules</button>
-                           <button onClick={() => { setEditingMatch(t); setIsEditMatchModalOpen(true); }} className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 border border-zinc-700 text-[10px] font-bold hover:bg-zinc-700 transition-colors">Edit</button>
-                           <button onClick={() => handleDeleteMatch(t.id)} className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 text-[10px] font-bold hover:bg-red-500/20 transition-colors">Delete</button>
-                        </div>
-                     </div>
-                  ))}
-                </div>
-             </div>
+              <div className="space-y-5">
+                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 px-1 mb-2">
+                    <div>
+                       <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider">Tournaments ({tournaments.filter(t => !t.isDeleted && !t.isScheduled && t.status !== 'SCHEDULED').length})</h3>
+                       <p className="text-xs text-zinc-400 mt-0.5">Live, upcoming, and completed match tournaments</p>
+                    </div>
+                    <button onClick={() => { setIsSchedulingMatch(false); setIsCreateMatchModalOpen(true); }} className="bg-yellow-500 text-black px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-yellow-400 transition-all shadow-[0_4px_16px_rgba(234,179,8,0.25)] active:scale-95 self-start sm:self-auto">Create New</button>
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6 w-full">
+                   {tournaments.filter(t => !t.isDeleted && !t.isScheduled && t.status !== 'SCHEDULED').map((t, i) => {
+                      const matchNumber = (t as any).matchNumber || (t as any).matchNo || (i + 1);
+                      const matchBanner = t.image || (t as any).banner || (t as any).bannerUrl || (t as any).imageUrl || "/match-card.png";
+                      const spotsFilled = Number(t.spotsFilled || 0);
+                      const spotsTotal = Number(t.spotsTotal || 100);
+                      const fillPercentage = Math.min(Math.round((spotsFilled / Math.max(spotsTotal, 1)) * 100), 100);
+
+                      return (
+                         <div key={t.id || i} className="w-full bg-[#121215] border border-zinc-800 hover:border-yellow-500/40 rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 flex flex-col relative group">
+                            {/* Top Neon Line */}
+                            <div className="h-1 w-full bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-600"></div>
+
+                            {/* 1. Header (Tag, Status, Title) */}
+                            <div className="p-4 bg-zinc-900/40 border-b border-zinc-800/80 space-y-2.5">
+                               <div className="flex justify-between items-center">
+                                  {/* MATCH Tag */}
+                                  <span className="bg-yellow-400 text-black font-black text-[11px] px-2.5 py-0.5 rounded-md tracking-wider uppercase shadow-sm">
+                                     MATCH #{matchNumber}
+                                  </span>
+
+                                  {/* Status Badge */}
+                                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider border ${
+                                     t.status === 'LIVE' || t.status === 'IN-PROGRESS'
+                                        ? 'bg-red-500/10 text-red-400 border-red-500/30'
+                                        : t.status === 'COMPLETED'
+                                        ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                                        : 'bg-yellow-400/10 text-yellow-400 border-yellow-400/30'
+                                  }`}>
+                                     <span className={`w-1.5 h-1.5 rounded-full ${
+                                        t.status === 'LIVE' || t.status === 'IN-PROGRESS' 
+                                           ? 'bg-red-500 animate-ping' 
+                                           : t.status === 'COMPLETED' 
+                                           ? 'bg-green-400' 
+                                           : 'bg-yellow-400 animate-pulse'
+                                     }`}></span>
+                                     {t.status || 'UPCOMING'}
+                                  </span>
+                               </div>
+
+                               {/* Title */}
+                               <h4 className="font-extrabold text-white text-base tracking-wide leading-tight">
+                                  {t.title}
+                               </h4>
+                            </div>
+
+                            {/* 2. Match Landscape Banner Image (Title ke baad) */}
+                            <div className="px-4 pt-3.5">
+                               <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-zinc-800 shadow-md group">
+                                  <img 
+                                     src={matchBanner} 
+                                     alt={t.title || 'Match Banner'} 
+                                     onError={(e) => { (e.target as HTMLImageElement).src = '/match-card.png'; }}
+                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                                  <div className="absolute bottom-2 left-2.5 text-[11px] font-bold text-zinc-300 flex items-center gap-1.5">
+                                     <span className="w-2 h-2 rounded-full bg-red-500"></span> {t.type || 'BR'} • {t.mode || 'SQUAD'}
+                                  </div>
+                               </div>
+                            </div>
+
+                            {/* 3. Main Body Content */}
+                            <div className="p-4 space-y-3 flex-1">
+                               {/* Financials Hero Banner (ENTRY / PER KILL / PRIZE) */}
+                               <div className="grid grid-cols-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl divide-x divide-zinc-800/80 p-2.5 text-center shadow-inner">
+                                  <div>
+                                     <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">ENTRY</div>
+                                     <div className="text-xs font-black text-white mt-0.5 flex items-center justify-center gap-1">
+                                        {t.entryFee ? (
+                                           <>
+                                              <img src={PK_COIN_ICON} alt="Coin" className="w-3.5 h-3.5 object-contain" />
+                                              <span>{t.entryFee}</span>
+                                           </>
+                                        ) : (
+                                           'FREE'
+                                        )}
+                                     </div>
+                                  </div>
+                                  <div>
+                                     <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">PER KILL</div>
+                                     <div className="text-xs font-black text-yellow-400 mt-0.5 flex items-center justify-center gap-1">
+                                        <img src={PK_COIN_ICON} alt="Coin" className="w-3.5 h-3.5 object-contain" />
+                                        <span>{t.perKill || 0}</span>
+                                     </div>
+                                  </div>
+                                  <div>
+                                     <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">PRIZE</div>
+                                     <div className="text-xs font-black text-emerald-400 mt-0.5 flex items-center justify-center gap-1">
+                                        <img src={PK_COIN_ICON} alt="Coin" className="w-3.5 h-3.5 object-contain" />
+                                        <span>{t.prizePool || 0}</span>
+                                     </div>
+                                  </div>
+                               </div>
+
+                               {/* Map & Slots Progress Bar */}
+                               <div className="bg-zinc-900/40 border border-zinc-800/70 rounded-xl p-3 space-y-2">
+                                  <div className="flex justify-between items-center text-xs">
+                                     <span className="text-zinc-400 font-semibold flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-yellow-400" /> 
+                                        Map: <span className="text-white font-bold">{t.map || t.type || 'TDM'}</span>
+                                     </span>
+                                     <span className="text-[11px] font-bold text-zinc-300">
+                                        <span className="text-yellow-400 font-black">{spotsFilled}</span> / {spotsTotal} Slots
+                                     </span>
+                                  </div>
+                                  {/* Yellow Progress Bar */}
+                                  <div className="w-full bg-zinc-800/90 rounded-full h-1.5 overflow-hidden">
+                                     <div 
+                                        className="bg-gradient-to-r from-yellow-500 to-amber-400 h-full rounded-full transition-all duration-300"
+                                        style={{ width: `${fillPercentage}%` }}
+                                     ></div>
+                                  </div>
+                               </div>
+
+                               {/* Room Credentials Box (Centered, with Pass Given underneath) */}
+                               <div className="bg-black/60 border border-zinc-800/80 rounded-xl p-3 flex flex-col items-center justify-center text-center space-y-1.5">
+                                  <div className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+                                     ROOM ID / PASS
+                                  </div>
+                                  <div className="font-mono text-xs font-bold tracking-wider text-zinc-200">
+                                     {t.roomId ? `${t.roomId} / ${t.password || '******'}` : 'Not Assigned'}
+                                  </div>
+                                  <div className="pt-0.5">
+                                     <span className={`text-[10px] font-black px-3 py-0.5 rounded-md uppercase tracking-wider border inline-block ${
+                                        t.roomId 
+                                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
+                                           : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                                     }`}>
+                                        {t.roomId ? 'PASS GIVEN' : 'PENDING'}
+                                     </span>
+                                  </div>
+                               </div>
+
+                               {/* Countdown Timer (Centered, Timer / Started underneath Countdown label) */}
+                               <div className="bg-gradient-to-r from-zinc-900/90 via-zinc-900/50 to-zinc-900/90 border border-yellow-500/20 rounded-xl p-3 flex flex-col items-center justify-center text-center space-y-1.5">
+                                  <div className="text-[9px] text-zinc-400 uppercase font-black tracking-widest flex items-center justify-center gap-1.5">
+                                     <Clock className="w-3.5 h-3.5 text-yellow-400 animate-spin" style={{ animationDuration: '8s' }} />
+                                     <span>COUNTDOWN</span>
+                                  </div>
+                                  <div className="text-xs font-black text-yellow-400 tracking-tight font-mono bg-black/70 px-3 py-1 rounded border border-zinc-800">
+                                     {(() => {
+                                        if (!t.date || !t.time) return 'TBD';
+                                        const matchTime = new Date(`${t.date} ${t.time}`).getTime();
+                                        if (isNaN(matchTime)) return 'TBD';
+                                        const diff = matchTime - Date.now();
+                                        if (diff <= 0) return 'MATCH STARTED';
+                                        const hours = Math.floor(diff / (1000 * 60 * 60));
+                                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                                        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                                        return `${hours.toString().padStart(2, '0')}h : ${minutes.toString().padStart(2, '0')}m : ${seconds.toString().padStart(2, '0')}s`;
+                                     })()}
+                                  </div>
+                               </div>
+
+                               {/* DATE & TIME (Countdown Ke Baad - Left & Right) */}
+                               <div className="flex items-center justify-between text-xs text-zinc-400 bg-zinc-900/30 border border-zinc-800/60 px-3.5 py-2 rounded-xl">
+                                  {/* Date Left Me */}
+                                  <span className="flex items-center gap-2 font-medium">
+                                     <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+                                     <span>{t.date || 'TBD'}</span>
+                                  </span>
+                                  {/* Time Right Me */}
+                                  <span className="flex items-center gap-2 font-medium">
+                                     <Clock className="w-3.5 h-3.5 text-yellow-400" />
+                                     <span>{t.time || 'TBD'}</span>
+                                  </span>
+                                </div>
+                            </div>
+
+                            {/* 4. Action Buttons (Upper Row: Players, Room, Rules | Lower Row: Edit, Delete) */}
+                            <div className="p-3 border-t border-zinc-800/80 bg-zinc-900/40 space-y-2">
+                               {/* Upper Row: Players, Room, Rules */}
+                               <div className="grid grid-cols-3 gap-2">
+                                  <button 
+                                     onClick={() => handleViewPlayers(t.id)} 
+                                     className="py-2.5 px-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5 active:scale-95"
+                                     title="View Players"
+                                   >
+                                     <Users className="w-3.5 h-3.5 text-blue-400" />
+                                     <span>Players</span>
+                                  </button>
+                                  
+                                  <button 
+                                     onClick={() => { 
+                                        setSelectedMatchId(t.id); 
+                                        setRoomData({ roomId: t.roomId || '', password: t.password || '' }); 
+                                        setIsRoomModalOpen(true); 
+                                     }} 
+                                     className="py-2.5 px-2 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-bold transition flex items-center justify-center gap-1.5 active:scale-95"
+                                     title="Room Info"
+                                   >
+                                     <Key className="w-3.5 h-3.5 text-yellow-400" />
+                                     <span>Room</span>
+                                  </button>
+                                  
+                                  <button 
+                                     onClick={() => { 
+                                        setEditingRulesMatch(t); 
+                                        setMatchRulesText(t.rules || 'Emulators are strictly prohibited. Using them will result in a ban without refund.\nTeam up in solo matches is not allowed. All players involved will be disqualified.\nEnsure your in-game name matches exactly with your profile name.'); 
+                                        setIsRulesModalOpen(true); 
+                                     }} 
+                                     className="py-2.5 px-2 rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5 active:scale-95"
+                                     title="Match Rules"
+                                   >
+                                     <FileText className="w-3.5 h-3.5 text-yellow-400" />
+                                     <span>Rules</span>
+                                  </button>
+                               </div>
+
+                               {/* Lower Row: Edit, Delete */}
+                               <div className="grid grid-cols-2 gap-2">
+                                  <button 
+                                     onClick={() => { 
+                                        setEditingMatch(t); 
+                                        setIsEditMatchModalOpen(true); 
+                                     }} 
+                                     className="py-2.5 px-2 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-bold transition flex items-center justify-center gap-1.5 active:scale-95"
+                                     title="Edit Match"
+                                   >
+                                     <Edit2 className="w-3.5 h-3.5 text-zinc-400" />
+                                     <span>Edit</span>
+                                  </button>
+
+                                  <button 
+                                     onClick={() => handleDeleteMatch(t.id)} 
+                                     className="py-2.5 px-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-bold transition flex items-center justify-center gap-1.5 active:scale-95"
+                                     title="Delete Match"
+                                  >
+                                     <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                     <span>Delete</span>
+                                  </button>
+                               </div>
+                            </div>
+                         </div>
+                      );
+                   })}
+                 </div>
+              </div>
            ) : activeTab === 'transactions' ? (
-               <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-zinc-800 pb-4 mb-6 gap-4">
+               <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-zinc-800/80 pb-4 gap-4">
                      <div>
                         <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider">Deposits Management</h3>
                         <p className="text-[10px] text-zinc-500 mt-1">Approve or reject deposit requests from users</p>
@@ -3220,125 +3768,191 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   {/* List of deposit transactions based on sub-tab */}
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                      {depositSubTab === 'pending' ? (
                         pendingDepositsList.length === 0 ? (
-                           <div className="text-center py-12 text-zinc-500 text-xs">No pending deposits found</div>
+                           <div className="col-span-full text-center py-12 text-zinc-500 text-xs">No pending deposits found</div>
                         ) : (
                            pendingDepositsList.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()).map((t, i) => {
                               const txUser = users.find(u => u.uid === t.userId || u.id === t.userId || u.username === t.username);
                               const userPhone = txUser?.phone || t.phoneNumber || t.phone || 'N/A';
                               const userEmail = txUser?.email || 'N/A';
                               return (
-                                 <div key={i} className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="flex-1">
-                                       <div className="flex items-center space-x-3 mb-2">
-                                          <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-green-500/10 text-green-500 border border-green-500/20">
-                                             {t.type}
+                                 <div key={i} className="w-full bg-[#16161a] border border-yellow-500/20 rounded-3xl shadow-[0_15px_50px_-15px_rgba(250,204,21,0.15)] overflow-hidden flex flex-col justify-between">
+                                    <div>
+                                       <div className="h-1 w-full bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-300"></div>
+                                       <div className="px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-zinc-800/80">
+                                          <h1 className="text-xl font-extrabold text-white tracking-tight">
+                                             Deposit Request
+                                          </h1>
+                                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-yellow-400/10 text-yellow-400 border border-yellow-400/30 shadow-sm">
+                                             <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                                             Pending
                                           </span>
-                                          <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                                             {t.status}
-                                          </span>
-                                          <span className="text-[10px] text-zinc-500">{new Date(t.date || t.createdAt).toLocaleString()}</span>
                                        </div>
-                                       
-                                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
+
+                                       <div className="p-4 sm:p-6 space-y-5">
                                           <div>
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">User Details</p>
-                                             <p className="text-xs text-white font-bold">{t.username || 'Unknown'}</p>
-                                             <p className="text-[10px] text-zinc-400 mt-0.5">{userPhone !== 'N/A' ? userPhone : 'No Phone'}</p>
-                                             <p className="text-[10px] text-zinc-400 break-all">{userEmail !== 'N/A' ? userEmail : 'No Email'}</p>
-                                          </div>
-                                          <div>
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Method / Details</p>
-                                             <p className="text-xs text-white font-bold">{t.method || t.paymentMethod || 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Amount</p>
-                                             <p className="text-sm font-black text-yellow-500">PKR {t.amount}</p>
-                                          </div>
-                                          {t.screenshot && (
-                                             <div>
-                                                <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Screenshot</p>
-                                                <button 
-                                                  onClick={() => {
-                                                     setViewingProofUrl(t.screenshot);
-                                                     setIsProofModalOpen(true);
-                                                  }} 
-                                                  className="flex items-center space-x-2 text-[10px] bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-black border border-yellow-500/30 px-4 py-2 rounded-lg font-black uppercase tracking-widest transition-all"
-                                                >
-                                                   <ImageIcon className="w-3.5 h-3.5" />
-                                                   <span>View Proof</span>
-                                                </button>
+                                             <div className="text-[11px] font-bold tracking-wider text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
+                                                <div className="w-3.5 h-3.5 bg-yellow-400 rounded-full flex items-center justify-center">
+                                                   <span className="text-[8px] text-black font-black">U</span>
+                                                </div> User Details
                                              </div>
-                                          )}
+                                             <div className="bg-[#111114] border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+                                                <div className="flex justify-between items-center text-sm gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Username / IGN</span>
+                                                   <span className="font-semibold text-zinc-100 truncate text-right">{t.username || 'Unknown'}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Phone Number</span>
+                                                   <span className="font-semibold text-yellow-400 tracking-wide truncate text-right">
+                                                      {userPhone !== 'N/A' ? userPhone : 'No Phone'}
+                                                   </span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Email Address</span>
+                                                   <span className="font-semibold text-zinc-200 text-xs sm:text-sm break-all text-right">{userEmail !== 'N/A' ? userEmail : 'No Email'}</span>
+                                                </div>
+                                             </div>
+                                          </div>
+
+                                       <div className="bg-gradient-to-b from-[#1c1c22] to-[#121215] border border-yellow-500/25 rounded-2xl p-5 shadow-inner">
+                                          <div className="flex flex-col items-center justify-center text-center pb-4 border-b border-zinc-800/80">
+                                             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">
+                                                Deposit Amount
+                                             </span>
+                                             <div className="text-3xl sm:text-4xl font-extrabold text-yellow-400 tracking-tight flex items-center justify-center gap-2">
+                                                <img src={PK_COIN_ICON} alt="Coin" className="w-7 h-7 sm:w-8 sm:h-8 object-contain inline-block drop-shadow-md" />
+                                                <span>{t.amount}</span>
+                                             </div>
+                                             <div className="mt-3 text-xs text-zinc-300 font-medium">
+                                                Sent TO your <span className="text-yellow-400 font-bold uppercase">{t.method || t.paymentMethod || 'EasyPaisa'}</span> account
+                                             </div>
+                                          </div>
+
+                                          <div className="flex items-center justify-between pt-3.5 text-xs text-zinc-400 font-medium">
+                                             <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+                                                <span>{new Date(t.date || t.createdAt).toLocaleDateString()}</span>
+                                             </div>
+                                             <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                <Clock className="w-3.5 h-3.5 text-yellow-400" />
+                                                <span>{new Date(t.date || t.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                             </div>
+                                          </div>
+                                       </div>
+
+                                       {t.screenshot && (
+                                          <button 
+                                             onClick={() => {
+                                                setViewingProofUrl(t.screenshot);
+                                                setIsProofModalOpen(true);
+                                             }} 
+                                             className="w-full py-3.5 px-4 bg-[#1f1f24] hover:bg-[#282830] text-zinc-200 hover:text-yellow-400 border border-zinc-700/60 hover:border-yellow-400/50 font-semibold text-sm rounded-xl transition-all duration-200 flex items-center justify-center gap-2 group"
+                                          >
+                                             <ImageIcon className="w-4 h-4 text-yellow-400 group-hover:scale-110 transition-transform" />
+                                             View Payment Proof
+                                          </button>
+                                       )}
+
+                                       <div className="grid grid-cols-2 gap-3 pt-1">
+                                          <button onClick={() => confirmRejectTransaction(t)} className="w-full py-3 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-sm rounded-xl transition duration-150 flex items-center justify-center gap-1.5 active:scale-95">
+                                             <X className="w-4 h-4" /> Reject
+                                          </button>
+                                          <button onClick={() => confirmApproveTransaction(t)} className="w-full py-3 px-4 bg-yellow-400 hover:bg-yellow-300 text-black font-extrabold text-sm rounded-xl shadow-[0_4px_20px_rgba(250,204,21,0.25)] transition duration-150 flex items-center justify-center gap-1.5 active:scale-95">
+                                             <Check className="w-4 h-4" /> Approve
+                                          </button>
                                        </div>
                                     </div>
-                                    
-                                    <div className="flex flex-row md:flex-col gap-2 shrink-0 border-t border-zinc-800 md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4">
-                                       <button onClick={() => confirmApproveTransaction(t)} className="flex-1 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-black border border-green-500/30 font-bold text-xs px-4 py-2 rounded-lg transition-colors uppercase">
-                                          Approve
-                                       </button>
-                                       <button onClick={() => confirmRejectTransaction(t)} className="flex-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-black border border-red-500/30 font-bold text-xs px-4 py-2 rounded-lg transition-colors uppercase">
-                                          Reject
-                                       </button>
-                                    </div>
+                                 </div>
                                  </div>
                               );
                            })
                         )
                      ) : (
                         historyDepositsList.length === 0 ? (
-                           <div className="text-center py-12 text-zinc-500 text-xs">No deposit history found</div>
+                           <div className="col-span-full text-center py-12 text-zinc-500 text-xs">No deposit history found</div>
                         ) : (
                            historyDepositsList.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()).map((t, i) => {
                               const txUser = users.find(u => u.uid === t.userId || u.id === t.userId || u.username === t.username);
                               const userPhone = txUser?.phone || t.phoneNumber || t.phone || 'N/A';
                               const userEmail = txUser?.email || 'N/A';
                               return (
-                                 <div key={i} className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="flex-1">
-                                       <div className="flex items-center space-x-3 mb-2">
-                                          <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-green-500/10 text-green-500 border border-green-500/20">
-                                             {t.type}
-                                          </span>
-                                          <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase border ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                                             {t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'Approved' : 'Rejected'}
-                                          </span>
-                                          <span className="text-[10px] text-zinc-500">{new Date(t.date || t.createdAt).toLocaleString()}</span>
-                                       </div>
-                                       
-                                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3">
-                                          <div>
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">User Details</p>
-                                             <p className="text-xs text-white font-bold">{t.username || 'Unknown'}</p>
-                                             <p className="text-[10px] text-zinc-400 mt-0.5">{userPhone !== 'N/A' ? userPhone : 'No Phone'}</p>
-                                             <p className="text-[10px] text-zinc-400 break-all">{userEmail !== 'N/A' ? userEmail : 'No Email'}</p>
-                                          </div>
-                                          <div>
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Method / Details</p>
-                                             <p className="text-xs text-white font-bold">{t.method || t.paymentMethod || 'N/A'}</p>
-                                          </div>
-                                          <div>
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Amount</p>
-                                             <p className="text-sm font-black text-yellow-500">PKR {t.amount}</p>
-                                          </div>
-                                          {t.screenshot && (
-                                             <div>
-                                                <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Screenshot</p>
-                                                <button 
-                                                  onClick={() => {
-                                                     setViewingProofUrl(t.screenshot);
-                                                     setIsProofModalOpen(true);
-                                                  }} 
-                                                  className="flex items-center space-x-2 text-[10px] bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-black border border-yellow-500/30 px-4 py-2 rounded-lg font-black uppercase tracking-widest transition-all"
-                                                >
-                                                   <ImageIcon className="w-3.5 h-3.5" />
-                                                   <span>View Proof</span>
-                                                </button>
+                                 <div key={i} className="w-full bg-[#16161a] border border-zinc-800 rounded-3xl shadow-[0_15px_50px_-15px_rgba(0,0,0,0.3)] overflow-hidden">
+                                    <div className={`h-1 w-full bg-gradient-to-r ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'from-green-500 via-emerald-400 to-green-300' : 'from-red-500 via-rose-400 to-red-300'}`}></div>
+                                    <div className="px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-zinc-800/80">
+                                       <h1 className="text-xl font-extrabold text-white tracking-tight">
+                                          Deposit Request
+                                       </h1>
+                                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500/10 text-green-500 border border-green-500/30' : 'bg-red-500/10 text-red-500 border border-red-500/30'}`}>
+                                          <span className={`w-2 h-2 rounded-full ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                                          {t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'Approved' : 'Rejected'}
+                                       </span>
+                                    </div>
+
+                                    <div className="p-4 sm:p-6 space-y-5">
+                                       <div>
+                                          <div className="text-[11px] font-bold tracking-wider text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
+                                                <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                                <span className="text-[8px] text-black font-black">U</span>
+                                             </div> User Details
                                              </div>
-                                          )}
+                                          <div className="bg-[#111114] border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+                                             <div className="flex justify-between items-center text-sm gap-2">
+                                                <span className="text-zinc-400 text-xs shrink-0">Username / IGN</span>
+                                                <span className="font-semibold text-zinc-100 truncate text-right">{t.username || 'Unknown'}</span>
+                                             </div>
+                                             <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                <span className="text-zinc-400 text-xs shrink-0">Phone Number</span>
+                                                <span className="font-semibold text-zinc-300 tracking-wide truncate text-right">
+                                                   {userPhone !== 'N/A' ? userPhone : 'No Phone'}
+                                                </span>
+                                             </div>
+                                             <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                <span className="text-zinc-400 text-xs shrink-0">Email Address</span>
+                                                <span className="font-semibold text-zinc-200 text-xs sm:text-sm break-all text-right">{userEmail !== 'N/A' ? userEmail : 'No Email'}</span>
+                                             </div>
+                                          </div>
                                        </div>
+
+                                       <div className="bg-gradient-to-b from-[#1c1c22] to-[#121215] border border-zinc-800/80 rounded-2xl p-5 shadow-inner">
+                                          <div className="flex flex-col items-center justify-center text-center pb-4 border-b border-zinc-800/80">
+                                             <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">
+                                                Deposit Amount
+                                             </span>
+                                             <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
+                                                <img src={PK_COIN_ICON} alt="Coin" className="w-7 h-7 sm:w-8 sm:h-8 object-contain inline-block drop-shadow-md" />
+                                                <span>{t.amount}</span>
+                                             </div>
+                                             <div className="mt-3 text-xs text-zinc-300 font-medium">
+                                                Sent TO your <span className="text-zinc-100 font-bold uppercase">{t.method || t.paymentMethod || 'EasyPaisa'}</span> account
+                                             </div>
+                                          </div>
+
+                                          <div className="flex items-center justify-between pt-3.5 text-xs text-zinc-400 font-medium">
+                                             <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                                                <span>{new Date(t.date || t.createdAt).toLocaleDateString()}</span>
+                                             </div>
+                                             <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                                                <span>{new Date(t.date || t.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                             </div>
+                                          </div>
+                                       </div>
+
+                                       {t.screenshot && (
+                                          <button 
+                                             onClick={() => {
+                                                setViewingProofUrl(t.screenshot);
+                                                setIsProofModalOpen(true);
+                                             }} 
+                                             className="w-full py-3.5 px-4 bg-[#1f1f24] hover:bg-[#282830] text-zinc-200 hover:text-white border border-zinc-700/60 hover:border-zinc-500/50 font-semibold text-sm rounded-xl transition-all duration-200 flex items-center justify-center gap-2 group"
+                                          >
+                                             <ImageIcon className="w-4 h-4 text-zinc-400 group-hover:scale-110 transition-transform" />
+                                             View Payment Proof
+                                          </button>
+                                       )}
                                     </div>
                                  </div>
                               );
@@ -3348,8 +3962,8 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                </div>
             ) : activeTab === 'withdrawals' ? (
-               <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-zinc-800 pb-4 mb-6 gap-4">
+               <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-zinc-800/80 pb-4 gap-4">
                      <div>
                         <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider">Withdrawals Management</h3>
                         <p className="text-[10px] text-zinc-500 mt-1">Approve or reject withdrawal requests from users</p>
@@ -3373,111 +3987,147 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   {/* List of withdrawal transactions based on sub-tab */}
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                      {withdrawalSubTab === 'pending' ? (
                         pendingWithdrawalsList.length === 0 ? (
-                           <div className="text-center py-12 text-zinc-500 text-xs">No pending withdrawals found</div>
+                           <div className="col-span-full text-center py-12 text-zinc-500 text-xs">No pending withdrawals found</div>
                         ) : (
                            pendingWithdrawalsList.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()).map((t, i) => {
                               const txUser = users.find(u => u.uid === t.userId || u.id === t.userId || u.username === t.username);
-                              const userPhone = txUser?.phone || t.phone || 'N/A';
+                              const userPhone = txUser?.phone || t.phoneNumber || t.phone || 'N/A';
                               const userEmail = txUser?.email || 'N/A';
                               const accTitle = t.accountTitle || (t.details && t.details.includes('Title: ') ? t.details.split('|')[0].replace('Title: ', '').trim() : 'N/A');
                               const accNumber = t.accountNumber || t.phoneNumber || (t.details && t.details.includes('Number: ') ? t.details.split('|')[1].replace('Number: ', '').trim() : 'N/A');
                               const payMethod = t.method || t.paymentMethod || t.m || 'N/A';
                               return (
-                                 <div key={i} className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="flex-1">
-                                       <div className="flex items-center space-x-3 mb-2">
-                                          <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-red-500/10 text-red-500 border border-red-500/20">
-                                             {t.type}
+                                 <div key={i} className="w-full bg-[#16161a] border border-yellow-500/20 rounded-3xl shadow-[0_15px_50px_-15px_rgba(250,204,21,0.15)] overflow-hidden flex flex-col justify-between">
+                                    <div>
+                                       <div className="h-1 w-full bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-300"></div>
+                                       <div className="px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-zinc-800/80">
+                                          <h1 className="text-xl font-extrabold text-white tracking-tight">
+                                             Withdrawal Request
+                                          </h1>
+                                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-yellow-400/10 text-yellow-400 border border-yellow-400/30 shadow-sm">
+                                             <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                                             Pending
                                           </span>
-                                          <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                                             {t.status}
-                                          </span>
-                                          <span className="text-[10px] text-zinc-500">{new Date(t.date || t.createdAt).toLocaleString()}</span>
                                        </div>
-                                       
-                                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-3 items-center">
-                                          <div className="md:col-span-4">
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">User Details</p>
-                                             <p className="text-xs text-white font-bold">{t.username || 'Unknown'}</p>
-                                             <p className="text-[10px] text-zinc-400 mt-0.5">{userPhone !== 'N/A' ? userPhone : 'No Phone'}</p>
-                                             <p className="text-[10px] text-zinc-400 break-all">{userEmail !== 'N/A' ? userEmail : 'No Email'}</p>
-                                          </div>
-                                          
-                                          <div className="md:col-span-5 bg-zinc-900/40 border border-zinc-800/80 p-3.5 rounded-xl space-y-2">
-                                             <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-1">
-                                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Account Details</span>
-                                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                                                   payMethod.toLowerCase() === 'easypaisa' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
-                                                   payMethod.toLowerCase() === 'jazzcash' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
-                                                   payMethod.toLowerCase() === 'sadapay' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
-                                                   payMethod.toLowerCase() === 'nayapay' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
-                                                   'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
-                                                }`}>
-                                                   {payMethod}
-                                                </span>
+
+                                       <div className="p-4 sm:p-6 space-y-5">
+                                          {/* User Details */}
+                                          <div>
+                                             <div className="text-[11px] font-bold tracking-wider text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
+                                                <div className="w-3.5 h-3.5 bg-yellow-400 rounded-full flex items-center justify-center">
+                                                   <span className="text-[8px] text-black font-black">U</span>
+                                                </div> User Details
                                              </div>
-                                             <div className="grid grid-cols-1 gap-1.5">
-                                                <div className="flex items-center justify-between bg-zinc-950/80 px-2.5 py-1.5 rounded-lg border border-zinc-800/50">
-                                                   <div>
-                                                      <span className="text-[8px] text-zinc-500 uppercase font-black block">Account Title</span>
-                                                      <span className="text-xs text-white font-bold">{accTitle}</span>
-                                                   </div>
-                                                   {accTitle !== 'N/A' && (
-                                                      <button onClick={() => { navigator.clipboard.writeText(accTitle); toast.success('Account Title copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors" title="Copy Account Title">
-                                                         <Copy className="w-3 h-3" />
-                                                      </button>
-                                                   )}
+                                             <div className="bg-[#111114] border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+                                                <div className="flex justify-between items-center text-sm gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Username / IGN</span>
+                                                   <span className="font-semibold text-zinc-100 truncate text-right">{t.username || 'Unknown'}</span>
                                                 </div>
-                                                <div className="flex items-center justify-between bg-zinc-950/80 px-2.5 py-1.5 rounded-lg border border-zinc-800/50">
-                                                   <div>
-                                                      <span className="text-[8px] text-zinc-500 uppercase font-black block">Account Number</span>
-                                                      <span className="text-xs text-white font-bold">{accNumber}</span>
-                                                   </div>
-                                                   {accNumber !== 'N/A' && (
-                                                      <button onClick={() => { navigator.clipboard.writeText(accNumber); toast.success('Account Number copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors" title="Copy Account Number">
-                                                         <Copy className="w-3 h-3" />
-                                                      </button>
-                                                   )}
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Phone Number</span>
+                                                   <span className="font-semibold text-yellow-400 tracking-wide truncate text-right">
+                                                      {userPhone !== 'N/A' ? userPhone : 'No Phone'}
+                                                   </span>
                                                 </div>
-                                                <div className="flex items-center justify-between bg-zinc-950/80 px-2.5 py-1.5 rounded-lg border border-zinc-800/50">
-                                                   <div>
-                                                      <span className="text-[8px] text-zinc-500 uppercase font-black block">Payment Method</span>
-                                                      <span className={`text-xs font-black uppercase ${
-                                                         payMethod.toLowerCase() === 'easypaisa' ? 'text-green-500' :
-                                                         payMethod.toLowerCase() === 'jazzcash' ? 'text-red-500' :
-                                                         payMethod.toLowerCase() === 'sadapay' ? 'text-sky-400' :
-                                                         payMethod.toLowerCase() === 'nayapay' ? 'text-orange-400' :
-                                                         'text-yellow-500'
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Email Address</span>
+                                                   <span className="font-semibold text-zinc-200 text-xs sm:text-sm break-all text-right">{userEmail !== 'N/A' ? userEmail : 'No Email'}</span>
+                                                </div>
+                                             </div>
+                                          </div>
+
+                                          {/* Account Details */}
+                                          <div>
+                                             <div className="text-[11px] font-bold tracking-wider text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
+                                                <div className="w-3.5 h-3.5 bg-yellow-400/80 rounded-full flex items-center justify-center">
+                                                   <span className="text-[8px] text-black font-black">A</span>
+                                                </div> Account Details
+                                             </div>
+                                             <div className="bg-[#111114] border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+                                                <div className="flex justify-between items-center text-sm gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Account Title</span>
+                                                   <div className="flex items-center gap-1.5 truncate max-w-[60%]">
+                                                      <span className="font-semibold text-zinc-100 truncate text-right">{accTitle}</span>
+                                                      {accTitle !== 'N/A' && (
+                                                         <button onClick={() => { navigator.clipboard.writeText(accTitle); toast.success('Account Title copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors shrink-0" title="Copy Account Title">
+                                                            <Copy className="w-3 h-3" />
+                                                         </button>
+                                                      )}
+                                                   </div>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Account Number</span>
+                                                   <div className="flex items-center gap-1.5 truncate max-w-[60%]">
+                                                      <span className="font-semibold text-yellow-400 tracking-wide truncate text-right">{accNumber}</span>
+                                                      {accNumber !== 'N/A' && (
+                                                         <button onClick={() => { navigator.clipboard.writeText(accNumber); toast.success('Account Number copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors shrink-0" title="Copy Account Number">
+                                                            <Copy className="w-3 h-3" />
+                                                         </button>
+                                                      )}
+                                                   </div>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Payment Method</span>
+                                                   <div className="flex items-center gap-1.5">
+                                                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase ${
+                                                         payMethod.toLowerCase() === 'easypaisa' ? 'bg-green-500/15 text-green-400 border border-green-500/30' :
+                                                         payMethod.toLowerCase() === 'jazzcash' ? 'bg-red-500/15 text-red-400 border border-red-500/30' :
+                                                         payMethod.toLowerCase() === 'sadapay' ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30' :
+                                                         payMethod.toLowerCase() === 'nayapay' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30' :
+                                                         'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30'
                                                       }`}>
                                                          {payMethod}
                                                       </span>
+                                                      {payMethod !== 'N/A' && (
+                                                         <button onClick={() => { navigator.clipboard.writeText(payMethod); toast.success('Payment Method copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors shrink-0" title="Copy Payment Method">
+                                                            <Copy className="w-3 h-3" />
+                                                         </button>
+                                                      )}
                                                    </div>
-                                                   {payMethod !== 'N/A' && (
-                                                      <button onClick={() => { navigator.clipboard.writeText(payMethod); toast.success('Payment Method copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors" title="Copy Payment Method">
-                                                         <Copy className="w-3 h-3" />
-                                                      </button>
-                                                   )}
                                                 </div>
                                              </div>
                                           </div>
-                                          
-                                          <div className="md:col-span-3">
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Amount to Withdraw</p>
-                                             <p className="text-sm font-black text-red-500">PKR {t.amount}</p>
+
+                                          {/* Withdraw Amount & Method Box */}
+                                          <div className="bg-gradient-to-b from-[#1c1c22] to-[#121215] border border-yellow-500/25 rounded-2xl p-5 shadow-inner">
+                                             <div className="flex flex-col items-center justify-center text-center pb-4 border-b border-zinc-800/80">
+                                                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">
+                                                   Withdraw Amount
+                                                </span>
+                                                <div className="text-3xl sm:text-4xl font-extrabold text-yellow-400 tracking-tight flex items-center justify-center gap-2">
+                                                   <img src={PK_COIN_ICON} alt="Coin" className="w-7 h-7 sm:w-8 sm:h-8 object-contain inline-block drop-shadow-md" />
+                                                   <span>{t.amount}</span>
+                                                </div>
+                                                <div className="mt-3 text-xs text-zinc-300 font-medium">
+                                                   Transfer to user's <span className="text-yellow-400 font-bold uppercase">{payMethod}</span> account
+                                                </div>
+                                             </div>
+
+                                             <div className="flex items-center justify-between pt-3.5 text-xs text-zinc-400 font-medium">
+                                                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                   <Calendar className="w-3.5 h-3.5 text-yellow-400" />
+                                                   <span>{new Date(t.date || t.createdAt).toLocaleDateString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                   <Clock className="w-3.5 h-3.5 text-yellow-400" />
+                                                   <span>{new Date(t.date || t.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                </div>
+                                             </div>
+                                          </div>
+
+                                          {/* Action buttons */}
+                                          <div className="grid grid-cols-2 gap-3 pt-1">
+                                             <button onClick={() => confirmRejectTransaction(t)} className="w-full py-3 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-bold text-sm rounded-xl transition duration-150 flex items-center justify-center gap-1.5 active:scale-95">
+                                                <X className="w-4 h-4" /> Reject
+                                             </button>
+                                             <button onClick={() => confirmApproveTransaction(t)} className="w-full py-3 px-4 bg-yellow-400 hover:bg-yellow-300 text-black font-extrabold text-sm rounded-xl shadow-[0_4px_20px_rgba(250,204,21,0.25)] transition duration-150 flex items-center justify-center gap-1.5 active:scale-95">
+                                                <Check className="w-4 h-4" /> Approve
+                                             </button>
                                           </div>
                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex flex-row md:flex-col gap-2 shrink-0 border-t border-zinc-800 md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4">
-                                       <button onClick={() => confirmApproveTransaction(t)} className="flex-1 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-black border border-green-500/30 font-bold text-xs px-4 py-2 rounded-lg transition-colors uppercase">
-                                          Approve
-                                       </button>
-                                       <button onClick={() => confirmRejectTransaction(t)} className="flex-1 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-black border border-red-500/30 font-bold text-xs px-4 py-2 rounded-lg transition-colors uppercase">
-                                          Reject
-                                       </button>
                                     </div>
                                  </div>
                               );
@@ -3485,97 +4135,132 @@ export const AdminDashboard: React.FC = () => {
                         )
                      ) : (
                         historyWithdrawalsList.length === 0 ? (
-                           <div className="text-center py-12 text-zinc-500 text-xs">No withdrawal history found</div>
+                           <div className="col-span-full text-center py-12 text-zinc-500 text-xs">No withdrawal history found</div>
                         ) : (
                            historyWithdrawalsList.sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime()).map((t, i) => {
                               const txUser = users.find(u => u.uid === t.userId || u.id === t.userId || u.username === t.username);
-                              const userPhone = txUser?.phone || t.phone || 'N/A';
+                              const userPhone = txUser?.phone || t.phoneNumber || t.phone || 'N/A';
                               const userEmail = txUser?.email || 'N/A';
                               const accTitle = t.accountTitle || (t.details && t.details.includes('Title: ') ? t.details.split('|')[0].replace('Title: ', '').trim() : 'N/A');
                               const accNumber = t.accountNumber || t.phoneNumber || (t.details && t.details.includes('Number: ') ? t.details.split('|')[1].replace('Number: ', '').trim() : 'N/A');
                               const payMethod = t.method || t.paymentMethod || t.m || 'N/A';
                               return (
-                                 <div key={i} className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="flex-1">
-                                       <div className="flex items-center space-x-3 mb-2">
-                                          <span className="px-2 py-1 rounded text-[9px] font-bold uppercase bg-red-500/10 text-red-500 border border-red-500/20">
-                                             {t.type}
-                                          </span>
-                                          <span className={`px-2 py-1 rounded text-[9px] font-bold uppercase border ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                                 <div key={i} className="w-full bg-[#16161a] border border-zinc-800 rounded-3xl shadow-[0_15px_50px_-15px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col justify-between">
+                                    <div>
+                                       <div className={`h-1 w-full bg-gradient-to-r ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'from-green-500 via-emerald-400 to-green-300' : 'from-red-500 via-rose-400 to-red-300'}`}></div>
+                                       <div className="px-5 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b border-zinc-800/80">
+                                          <h1 className="text-xl font-extrabold text-white tracking-tight">
+                                             Withdrawal Request
+                                          </h1>
+                                          <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500/10 text-green-500 border border-green-500/30' : 'bg-red-500/10 text-red-500 border border-red-500/30'}`}>
+                                             <span className={`w-2 h-2 rounded-full ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500' : 'bg-red-500'}`}></span>
                                              {t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'Approved' : 'Rejected'}
                                           </span>
-                                          <span className="text-[10px] text-zinc-500">{new Date(t.date || t.createdAt).toLocaleString()}</span>
                                        </div>
-                                       
-                                       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-3 items-center">
-                                          <div className="md:col-span-4">
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">User Details</p>
-                                             <p className="text-xs text-white font-bold">{t.username || 'Unknown'}</p>
-                                             <p className="text-[10px] text-zinc-400 mt-0.5">{userPhone !== 'N/A' ? userPhone : 'No Phone'}</p>
-                                             <p className="text-[10px] text-zinc-400 break-all">{userEmail !== 'N/A' ? userEmail : 'No Email'}</p>
-                                          </div>
-                                          
-                                          <div className="md:col-span-5 bg-zinc-900/40 border border-zinc-800/80 p-3.5 rounded-xl space-y-2">
-                                             <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-1">
-                                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Account Details</span>
-                                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                                                   payMethod.toLowerCase() === 'easypaisa' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
-                                                   payMethod.toLowerCase() === 'jazzcash' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
-                                                   payMethod.toLowerCase() === 'sadapay' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
-                                                   payMethod.toLowerCase() === 'nayapay' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' :
-                                                   'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
-                                                }`}>
-                                                   {payMethod}
-                                                </span>
+
+                                       <div className="p-4 sm:p-6 space-y-5">
+                                          {/* User Details */}
+                                          <div>
+                                             <div className="text-[11px] font-bold tracking-wider text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
+                                                <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${t.status === 'completed' || t.status === 'approved' || t.status === 'APPROVED' ? 'bg-green-500' : 'bg-red-500'}`}>
+                                                   <span className="text-[8px] text-black font-black">U</span>
+                                                </div> User Details
                                              </div>
-                                             <div className="grid grid-cols-1 gap-1.5">
-                                                <div className="flex items-center justify-between bg-zinc-950/80 px-2.5 py-1.5 rounded-lg border border-zinc-800/50">
-                                                   <div>
-                                                      <span className="text-[8px] text-zinc-500 uppercase font-black block">Account Title</span>
-                                                      <span className="text-xs text-white font-bold">{accTitle}</span>
-                                                   </div>
-                                                   {accTitle !== 'N/A' && (
-                                                      <button onClick={() => { navigator.clipboard.writeText(accTitle); toast.success('Account Title copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors" title="Copy Account Title">
-                                                         <Copy className="w-3 h-3" />
-                                                      </button>
-                                                   )}
+                                             <div className="bg-[#111114] border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+                                                <div className="flex justify-between items-center text-sm gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Username / IGN</span>
+                                                   <span className="font-semibold text-zinc-100 truncate text-right">{t.username || 'Unknown'}</span>
                                                 </div>
-                                                <div className="flex items-center justify-between bg-zinc-950/80 px-2.5 py-1.5 rounded-lg border border-zinc-800/50">
-                                                   <div>
-                                                      <span className="text-[8px] text-zinc-500 uppercase font-black block">Account Number</span>
-                                                      <span className="text-xs text-white font-bold">{accNumber}</span>
-                                                   </div>
-                                                   {accNumber !== 'N/A' && (
-                                                      <button onClick={() => { navigator.clipboard.writeText(accNumber); toast.success('Account Number copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors" title="Copy Account Number">
-                                                         <Copy className="w-3 h-3" />
-                                                      </button>
-                                                   )}
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Phone Number</span>
+                                                   <span className="font-semibold text-zinc-300 tracking-wide truncate text-right">
+                                                      {userPhone !== 'N/A' ? userPhone : 'No Phone'}
+                                                   </span>
                                                 </div>
-                                                <div className="flex items-center justify-between bg-zinc-950/80 px-2.5 py-1.5 rounded-lg border border-zinc-800/50">
-                                                   <div>
-                                                      <span className="text-[8px] text-zinc-500 uppercase font-black block">Payment Method</span>
-                                                      <span className={`text-xs font-black uppercase ${
-                                                         payMethod.toLowerCase() === 'easypaisa' ? 'text-green-500' :
-                                                         payMethod.toLowerCase() === 'jazzcash' ? 'text-red-500' :
-                                                         payMethod.toLowerCase() === 'sadapay' ? 'text-sky-400' :
-                                                         payMethod.toLowerCase() === 'nayapay' ? 'text-orange-400' :
-                                                         'text-yellow-500'
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Email Address</span>
+                                                   <span className="font-semibold text-zinc-200 text-xs sm:text-sm break-all text-right">{userEmail !== 'N/A' ? userEmail : 'No Email'}</span>
+                                                </div>
+                                             </div>
+                                          </div>
+
+                                          {/* Account Details */}
+                                          <div>
+                                             <div className="text-[11px] font-bold tracking-wider text-zinc-400 uppercase mb-3 flex items-center gap-1.5">
+                                                <div className="w-3.5 h-3.5 bg-zinc-700 rounded-full flex items-center justify-center">
+                                                   <span className="text-[8px] text-zinc-300 font-black">A</span>
+                                                </div> Account Details
+                                             </div>
+                                             <div className="bg-[#111114] border border-zinc-800/80 rounded-2xl p-4 space-y-3">
+                                                <div className="flex justify-between items-center text-sm gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Account Title</span>
+                                                   <div className="flex items-center gap-1.5 truncate max-w-[60%]">
+                                                      <span className="font-semibold text-zinc-100 truncate text-right">{accTitle}</span>
+                                                      {accTitle !== 'N/A' && (
+                                                         <button onClick={() => { navigator.clipboard.writeText(accTitle); toast.success('Account Title copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors shrink-0" title="Copy Account Title">
+                                                            <Copy className="w-3 h-3" />
+                                                         </button>
+                                                      )}
+                                                   </div>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Account Number</span>
+                                                   <div className="flex items-center gap-1.5 truncate max-w-[60%]">
+                                                      <span className="font-semibold text-zinc-300 tracking-wide truncate text-right">{accNumber}</span>
+                                                      {accNumber !== 'N/A' && (
+                                                         <button onClick={() => { navigator.clipboard.writeText(accNumber); toast.success('Account Number copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors shrink-0" title="Copy Account Number">
+                                                            <Copy className="w-3 h-3" />
+                                                         </button>
+                                                      )}
+                                                   </div>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm border-t border-zinc-800/70 pt-2.5 gap-2">
+                                                   <span className="text-zinc-400 text-xs shrink-0">Payment Method</span>
+                                                   <div className="flex items-center gap-1.5">
+                                                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase ${
+                                                         payMethod.toLowerCase() === 'easypaisa' ? 'bg-green-500/15 text-green-400 border border-green-500/30' :
+                                                         payMethod.toLowerCase() === 'jazzcash' ? 'bg-red-500/15 text-red-400 border border-red-500/30' :
+                                                         payMethod.toLowerCase() === 'sadapay' ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30' :
+                                                         payMethod.toLowerCase() === 'nayapay' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30' :
+                                                         'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30'
                                                       }`}>
                                                          {payMethod}
                                                       </span>
+                                                      {payMethod !== 'N/A' && (
+                                                         <button onClick={() => { navigator.clipboard.writeText(payMethod); toast.success('Payment Method copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors shrink-0" title="Copy Payment Method">
+                                                            <Copy className="w-3 h-3" />
+                                                         </button>
+                                                      )}
                                                    </div>
-                                                   {payMethod !== 'N/A' && (
-                                                      <button onClick={() => { navigator.clipboard.writeText(payMethod); toast.success('Payment Method copied!'); }} className="p-1 hover:bg-zinc-800 text-zinc-500 hover:text-yellow-500 rounded transition-colors" title="Copy Payment Method">
-                                                         <Copy className="w-3 h-3" />
-                                                      </button>
-                                                   )}
                                                 </div>
                                              </div>
                                           </div>
-                                          
-                                          <div className="md:col-span-3">
-                                             <p className="text-[9px] text-zinc-500 uppercase font-bold mb-1">Amount</p>
-                                             <p className="text-sm font-black text-red-500">PKR {t.amount}</p>
+
+                                          {/* Withdraw Amount & Method Box */}
+                                          <div className="bg-gradient-to-b from-[#1c1c22] to-[#121215] border border-zinc-800/80 rounded-2xl p-5 shadow-inner">
+                                             <div className="flex flex-col items-center justify-center text-center pb-4 border-b border-zinc-800/80">
+                                                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">
+                                                   Withdraw Amount
+                                                </span>
+                                                <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight flex items-center justify-center gap-2">
+                                                   <img src={PK_COIN_ICON} alt="Coin" className="w-7 h-7 sm:w-8 sm:h-8 object-contain inline-block drop-shadow-md" />
+                                                   <span>{t.amount}</span>
+                                                </div>
+                                                <div className="mt-3 text-xs text-zinc-300 font-medium">
+                                                   Transfer to user's <span className="text-zinc-100 font-bold uppercase">{payMethod}</span> account
+                                                </div>
+                                             </div>
+
+                                             <div className="flex items-center justify-between pt-3.5 text-xs text-zinc-400 font-medium">
+                                                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                   <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                                                   <span>{new Date(t.date || t.createdAt).toLocaleDateString()}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                                                   <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                                                   <span>{new Date(t.date || t.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                </div>
+                                             </div>
                                           </div>
                                        </div>
                                     </div>
@@ -4686,7 +5371,7 @@ export const AdminDashboard: React.FC = () => {
                  </AnimatePresence>
               </div>
 
-            ) : activeTab === 'notifications' ? (
+            ) : activeTab === "notifications" ? (
              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
                 <div className="flex items-center space-x-3 mb-6">
                     <div className="bg-yellow-500/10 p-2 rounded-xl">
@@ -4697,186 +5382,110 @@ export const AdminDashboard: React.FC = () => {
                       <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-black mt-1">Broadcast messages to all users</p>
                     </div>
                   </div>
-                <div className="max-w-2xl bg-zinc-950 p-6 rounded-xl border border-zinc-800">
-            <form onSubmit={handleSendPushNotification} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Notification Title</label>
-                <input 
-                  type="text" 
-                  value={notificationTitle}
-                  onChange={(e) => setNotificationTitle(e.target.value)}
-                  placeholder="e.g. New Match Scheduled!" 
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:outline-none focus:border-yellow-500" 
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Message Body</label>
-                <textarea 
-                  value={notificationMessage}
-                  onChange={(e) => setNotificationMessage(e.target.value)}
-                  placeholder="Write your notification message here..." 
-                  rows={4} 
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:outline-none focus:border-yellow-500"
-                ></textarea>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Target Link (Optional)</label>
-                <input 
-                  type="text" 
-                  value={notificationUrl}
-                  onChange={(e) => setNotificationUrl(e.target.value)}
-                  placeholder="e.g. /home or https://..." 
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-white focus:outline-none focus:border-yellow-500" 
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={isSendingNotification}
-                className={`w-full bg-yellow-500 text-black font-black uppercase tracking-widest py-3 rounded-lg transition-colors ${isSendingNotification ? 'opacity-50 cursor-not-allowed' : 'hover:bg-yellow-400'}`}
-              >
-                {isSendingNotification ? 'Sending...' : 'Send Notification Now'}
-              </button>
-            </form>
-                </div>
-              </div>
-            ) : activeTab === 'teams' ? (
-              <AdminTeamsView />
-            ) : activeTab === 'banners' ? (
-             <div className="space-y-6">
-                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6">
-                   <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
-                      <div>
-                         <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider">App Banners</h3>
-                         <p className="text-[10px] text-zinc-500 mt-1">Manage home screen slider and event banners</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                         <div className="flex items-center space-x-2 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 flex-1 md:flex-none">
-                            <Clock className="w-4 h-4 text-yellow-500" />
-                            <div className="flex flex-col">
-                               <span className="text-[8px] text-zinc-500 uppercase font-black">Slide Speed</span>
-                               <div className="flex items-center space-x-1">
-                                  <input 
-                                    type="number" 
-                                    value={settings?.bannerSpeed || 3000}
-                                    onChange={(e) => setSettings(prev => prev ? {...prev, bannerSpeed: parseInt(e.target.value)} : null)}
-                                    className="bg-transparent border-none p-0 text-xs font-bold text-white w-12 focus:ring-0"
-                                  />
-                                  <span className="text-[9px] text-zinc-600 font-bold">MS</span>
-                               </div>
-                            </div>
-                         </div>
-                         <button 
-                           onClick={() => {
-                             setEditingBanner(null);
-                             setNewBanner({ imageUrl: '', link: '', type: 'home', isActive: true });
-                             setIsBannerModalOpen(true);
-                           }}
-                           className="bg-yellow-500 text-black px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-all shadow-[0_0_20px_rgba(234,179,8,0.2)] flex items-center space-x-2 whitespace-nowrap flex-1 md:flex-none justify-center"
-                         >
-                            <Plus className="w-4 h-4" />
-                            <span>Add Banner</span>
-                         </button>
-                         <button 
-                           onClick={handleSaveSettings}
-                           className="bg-zinc-800 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-zinc-700 transition-all border border-zinc-700 flex-1 md:flex-none"
-                         >
-                            Save Speed
-                         </button>
-                      </div>
-                   </div>
+                
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="w-full lg:w-1/2">
+                    <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 mb-6">
+                      <form onSubmit={handleSendPushNotification} className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Notification Title</label>
+                          <input 
+                            type="text" 
+                            value={notificationTitle}
+                            onChange={(e) => setNotificationTitle(e.target.value)}
+                            placeholder="e.g. Special Weekend Event!" 
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Message</label>
+                          <textarea 
+                            value={notificationMessage}
+                            onChange={(e) => setNotificationMessage(e.target.value)}
+                            placeholder="Write your notification message here..." 
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white h-32 focus:outline-none focus:border-yellow-500 resize-none" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-zinc-400 uppercase mb-2">Target URL (Optional)</label>
+                          <input 
+                            type="text" 
+                            value={notificationUrl}
+                            onChange={(e) => setNotificationUrl(e.target.value)}
+                            placeholder="e.g. https://example.com/event" 
+                            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500" 
+                          />
+                        </div>
+                        <button 
+                          type="submit" 
+                          disabled={isSendingNotification}
+                          className={`w-full bg-yellow-500 text-black font-black uppercase tracking-widest py-3 rounded-lg transition-colors ${isSendingNotification ? "opacity-50 cursor-not-allowed" : "hover:bg-yellow-400"}`}
+                        >
+                          {isSendingNotification ? "Sending..." : "Send Notification Now"}
+                        </button>
+                      </form>
+                    </div>
 
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                     {banners.length > 0 ? (
-                       banners.map((banner) => (
-                         <div key={banner.id} className="bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 group relative flex flex-col shadow-lg">
-                           <div className="aspect-[21/9] bg-zinc-900 relative">
-                             <img 
-                               src={banner.imageUrl} 
-                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                               alt={banner.type} 
-                             />
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                             <div className="absolute top-3 left-3 flex items-center space-x-2">
-                               <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-md border ${
-                                 banner.isActive ? 'bg-green-500/10 text-green-500 border-green-500/30' : 'bg-red-500/10 text-red-500 border-red-500/30'
-                               }`}>
-                                 {banner.isActive ? 'Active' : 'Inactive'}
-                               </span>
-                               <label className="relative inline-flex items-center cursor-pointer">
-                                  <input 
-                                    type="checkbox" 
-                                    className="sr-only peer" 
-                                    checked={banner.isActive}
-                                    onChange={async (e) => {
-                                      const newVal = e.target.checked;
-                                      try {
-                                        await update(ref(db, `banners/${banner.id}`), { isActive: newVal });
-                                        toast.success(`Banner ${newVal ? 'Activated' : 'Deactivated'}`);
-                                      } catch (err) {
-                                        toast.error('Failed to update banner status');
-                                      }
-                                    }}
-                                  />
-                                  <div className="w-7 h-4 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-yellow-500"></div>
-                               </label>
+                    <div className="bg-red-500/10 p-6 rounded-xl border border-red-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                        <h3 className="text-sm font-bold text-red-500 uppercase tracking-wider">Danger Zone</h3>
+                      </div>
+                      <p className="text-xs text-zinc-400 mb-4">Clear all active notifications for all users. They will instantly disappear from all user inboxes.</p>
+                      <button 
+                        type="button"
+                        onClick={handleClearAllNotifications} 
+                        className="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 hover:text-red-300 border border-red-500/40 font-black uppercase tracking-widest py-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <span>CLEAR ALL USER NOTIFICATIONS</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="w-full lg:w-1/2">
+                    <div className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 h-[600px] flex flex-col">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-yellow-500" />
+                          <span>Notification History ({notificationHistory.length})</span>
+                        </h3>
+                        {notificationHistory.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleClearNotificationHistory}
+                            className="text-[11px] font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 active:scale-95"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                            <span>Clear History</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex-1 overflow-y-auto pr-2 space-y-3">
+                        {notificationHistory.length === 0 ? (
+                           <div className="text-center text-zinc-500 text-sm py-10">No notifications sent yet.</div>
+                        ) : (
+                           notificationHistory.map((notif: any) => (
+                             <div key={notif.id} className="bg-zinc-900 p-4 rounded-xl border border-zinc-800/50 flex flex-col">
+                               <div className="flex justify-between items-start mb-2">
+                                 <div className="font-bold text-sm text-yellow-500">{notif.title}</div>
+                                 <div className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-widest ${notif.type === "AUTO" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "bg-purple-500/20 text-purple-400 border border-purple-500/30"}`}>
+                                   {notif.type || "MANUAL"}
+                                 </div>
+                               </div>
+                               <div className="text-xs text-zinc-300 mb-3">{notif.message}</div>
+                               <div className="flex justify-between items-center text-[10px] text-zinc-600 mt-auto">
+                                 <div>{notif.url ? "Has URL" : "No URL"}</div>
+                                 <div>{new Date(notif.createdAt).toLocaleString()}</div>
+                               </div>
                              </div>
-                             <div className="absolute bottom-3 left-3">
-                               <span className="text-[10px] text-yellow-500 font-black uppercase tracking-widest bg-black/60  px-2 py-1 rounded-lg border border-yellow-500/20">
-                                 {banner.type}
-                               </span>
-                             </div>
-                           </div>
-                           <div className="p-4 flex justify-between items-center bg-zinc-950">
-                             <div className="text-[9px] text-zinc-500 font-bold uppercase truncate max-w-[120px]">
-                               {banner.link || 'No Action Link'}
-                             </div>
-                             <div className="flex items-center space-x-1">
-                               <button 
-                                 onClick={() => {
-                                   setEditingBanner(banner);
-                                   setNewBanner(banner);
-                                   setIsBannerModalOpen(true);
-                                 }}
-                                 className="p-2 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"
-                               >
-                                 <Edit2 className="w-3.5 h-3.5" />
-                               </button>
-                               <button 
-                                 onClick={() => {
-                                    setConfirmModal({
-                                      isOpen: true,
-                                      title: 'Delete Banner',
-                                      message: 'Are you sure you want to delete this banner? This action cannot be undone.',
-                                      type: 'danger',
-                                      confirmText: 'Delete',
-                                      onConfirm: async () => {
-                                         try {
-                                             await remove(ref(db, `banners/${banner.id}`));
-                                             toast.success("Banner deleted successfully");
-                                         } catch (error) {
-                                             toast.error("Failed to delete banner");
-                                         }
-                                         setConfirmModal({ isOpen: false });
-                                      }
-                                    });
-                                 }}
-                                 className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                               >
-                                 <Trash2 className="w-3.5 h-3.5" />
-                               </button>
-                             </div>
-                           </div>
-                         </div>
-                       ))
-                     ) : (
-                       <div className="col-span-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-zinc-800 rounded-3xl opacity-50">
-                          <ImageIcon className="w-12 h-12 text-zinc-700 mb-3" />
-                          <p className="text-zinc-500 font-bold text-xs uppercase tracking-widest">No banners uploaded yet</p>
-                       </div>
-                     )}
-                   </div>
-                </div>
-             </div>
+                           ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+              </div>
+            </div>
            ) : activeTab === 'settings' ? (
              <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 md:p-6">
                 <h3 className="text-sm font-bold text-yellow-500 uppercase tracking-wider mb-6">App Settings</h3>
@@ -5421,6 +6030,106 @@ export const AdminDashboard: React.FC = () => {
               </div>
            ) : activeTab === 'pin_resets' ? (
               <PinResetRequestsManager pinResetRequests={pinResetRequests} />
+           ) : activeTab === 'teams' ? (
+              <AdminTeamsView />
+           ) : activeTab === 'banners' ? (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl">
+                  <div>
+                    <h2 className="text-2xl font-black text-white uppercase tracking-wider flex items-center space-x-3">
+                      <ImageIcon className="w-8 h-8 text-yellow-500" />
+                      <span>Banner Management</span>
+                    </h2>
+                    <p className="text-sm text-zinc-400 mt-2 font-medium tracking-wide">Manage sliding banners on the Home screen</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingBanner(null);
+                      setNewBanner({ imageUrl: '', link: '', type: 'home', isActive: true });
+                      setIsBannerModalOpen(true);
+                    }}
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black px-6 py-3 rounded-2xl font-bold uppercase tracking-widest text-sm transition-all"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Add Banner</span>
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {banners.map((banner) => (
+                    <div key={banner.id} className="bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden group">
+                      <div className="relative h-48 w-full bg-zinc-900 flex items-center justify-center overflow-hidden">
+                        {banner.imageUrl ? (
+                          <img src={banner.imageUrl} alt="Banner" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        ) : (
+                          <ImageIcon className="w-12 h-12 text-zinc-700" />
+                        )}
+                        {!banner.isActive && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                            <span className="bg-zinc-900 border border-zinc-700 text-zinc-400 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest">Disabled</span>
+                          </div>
+                        )}
+                        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => {
+                              setEditingBanner(banner);
+                              setNewBanner(banner);
+                              setIsBannerModalOpen(true);
+                            }}
+                            className="bg-black/80 hover:bg-yellow-500 hover:text-black text-white p-2 rounded-xl backdrop-blur-md transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBanner(banner)}
+                            className="bg-black/80 hover:bg-red-500 text-white p-2 rounded-xl backdrop-blur-md transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="p-5">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs font-black text-yellow-500 uppercase tracking-widest">{banner.type || 'home'} Banner</span>
+                          {banner.isActive ? (
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-green-500"><div className="w-2 h-2 rounded-full bg-green-500" /> Active</span>
+                          ) : (
+                            <span className="flex items-center gap-1.5 text-xs font-bold text-zinc-500"><div className="w-2 h-2 rounded-full bg-zinc-500" /> Inactive</span>
+                          )}
+                        </div>
+                        {banner.link ? (
+                          <a href={banner.link} target="_blank" rel="noopener noreferrer" className="text-sm text-zinc-400 hover:text-white flex items-center gap-2 truncate">
+                            <Link2 className="w-4 h-4 shrink-0" />
+                            <span className="truncate">{banner.link}</span>
+                          </a>
+                        ) : (
+                          <p className="text-sm text-zinc-600 flex items-center gap-2 italic">
+                            <Link2 className="w-4 h-4" /> No link attached
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {banners.length === 0 && (
+                    <div className="col-span-full bg-zinc-900/50 border border-zinc-800 border-dashed rounded-3xl p-12 text-center flex flex-col items-center justify-center">
+                      <ImageIcon className="w-16 h-16 text-zinc-700 mb-4" />
+                      <h3 className="text-xl font-bold text-white mb-2">No Banners Found</h3>
+                      <p className="text-zinc-500 mb-6 max-w-md mx-auto">There are currently no sliding banners added to the home screen. Add a new banner to highlight promotions or announcements.</p>
+                      <button
+                        onClick={() => {
+                          setEditingBanner(null);
+                          setNewBanner({ imageUrl: '', link: '', type: 'home', isActive: true });
+                          setIsBannerModalOpen(true);
+                        }}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-6 py-3 rounded-2xl font-bold uppercase tracking-widest text-sm transition-colors"
+                      >
+                        Add First Banner
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
            ) : (
              <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-4">
                <Settings className="w-16 h-16 opacity-20" />
@@ -5513,10 +6222,26 @@ export const AdminDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-black/90  z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-2xl overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-zinc-800 bg-zinc-900/50">
-              <h2 className="text-lg font-black text-yellow-500 uppercase tracking-widest">Schedule New Match</h2>
-              <button onClick={() => setIsCreateMatchModalOpen(false)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
+              <h2 className="text-lg font-black text-yellow-500 uppercase tracking-widest">
+                {isSchedulingMatch ? 'Schedule Match for Upload' : 'Create Tournament Match'}
+              </h2>
+              <button onClick={() => { setIsCreateMatchModalOpen(false); setIsSchedulingMatch(false); }} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
              <form onSubmit={handleCreateMatch} className="p-6 overflow-y-auto max-h-[70vh] space-y-8">
+                {isSchedulingMatch && (
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3.5 flex items-start gap-3">
+                    <CalendarClock className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <div className="font-bold text-yellow-400 uppercase tracking-wider">Scheduled Match Mode</div>
+                      <div className="text-zinc-300 mt-0.5">
+                        Time of Upload: <span className="font-mono font-bold text-white">{formatScheduledTime(scheduleUploadDateTime)}</span> ({publishOnTime ? 'Auto-Publish: ON' : 'Manual Publish'})
+                      </div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">
+                        This match will be saved in PENDING status and will automatically push live to Tournaments at the upload time.
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Section 1: Basic Information */}
                 <div className="space-y-4">
                   <div className="flex items-center space-x-2 border-b border-zinc-800 pb-2 mb-4">
@@ -5527,14 +6252,17 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Match Title</label>
                       <input required type="text" value={newMatch.title} onChange={e => setNewMatch({...newMatch, title: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500 transition-colors" placeholder="e.g. Daily Scrims #42" />
                     </div>
                     
                     <div>
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Category Event</label>
-                      <select value={newMatch.type} onChange={e => setNewMatch({...newMatch, type: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500 appearance-none">
+                      <select value={newMatch.type} onChange={e => {
+                        const val = e.target.value;
+                        setNewMatch({...newMatch, type: val, map: val});
+                      }} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500 appearance-none">
                          <option value="TDM">TDM</option>
                          <option value="Erangel">Erangel</option>
                          <option value="Miramar">Miramar</option>
@@ -5555,13 +6283,13 @@ export const AdminDashboard: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Map Name</label>
                       <input required type="text" value={newMatch.map} onChange={e => setNewMatch({...newMatch, map: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500 transition-colors" placeholder="e.g. Bermuda, Purgatory" />
                     </div>
                     <PrizeDistributionEditor match={newMatch} setMatch={setNewMatch} />
                     
-                    <div className="col-span-2 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/50 mt-2">
+                    <div className="col-span-1 md:col-span-2 bg-zinc-900/30 p-4 rounded-xl border border-zinc-800/50 mt-2">
                       <label className="block text-[10px] font-bold text-yellow-500 uppercase tracking-widest mb-3">Match Cover Image (Optional)</label>
                       <div className="flex flex-col space-y-4">
                         <div className="flex gap-2">
@@ -5642,23 +6370,23 @@ export const AdminDashboard: React.FC = () => {
                     <h3 className="text-xs font-bold text-white uppercase tracking-widest">Entry & Rewards</h3>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="w-full">
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Entry Fee (PKR)</label>
                       <input required type="number" min="0" value={newMatch.entryFee} onChange={e => setNewMatch({...newMatch, entryFee: Number(e.target.value)})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500" />
                     </div>
 
-                    <div>
+                    <div className="w-full">
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Total Prize (PKR)</label>
                       <input required type="number" min="0" value={newMatch.prizePool} onChange={e => setNewMatch({...newMatch, prizePool: Number(e.target.value)})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500" />
                     </div>
                     
-                    <div>
+                    <div className="w-full">
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Per Kill Prize</label>
                       <input type="number" min="0" value={newMatch.perKill} onChange={e => setNewMatch({...newMatch, perKill: Number(e.target.value)})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500" placeholder="Optional" />
                     </div>
 
-                    <div className="col-span-2 lg:col-span-1">
+                    <div className="w-full">
                       <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Total Slots</label>
                       <input required type="number" min="2" value={newMatch.spotsTotal} onChange={e => setNewMatch({...newMatch, spotsTotal: Number(e.target.value)})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500" />
                     </div>
@@ -5666,8 +6394,17 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 
                 <button type="submit" className="w-full bg-yellow-500 text-black font-black uppercase tracking-widest py-5 rounded-2xl hover:bg-yellow-400 transition-all mt-6 shadow-[0_10px_20px_rgba(234,179,8,0.2)] active:scale-[0.98] flex items-center justify-center space-x-2">
-                  <Play className="w-5 h-5 fill-current" />
-                  <span>Publish Tournament Match</span>
+                  {isSchedulingMatch ? (
+                    <>
+                      <CalendarClock className="w-5 h-5" />
+                      <span>Save Scheduled Match</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-5 h-5 fill-current" />
+                      <span>Publish Tournament Match</span>
+                    </>
+                  )}
                 </button>
              </form>
           </div>
@@ -5842,15 +6579,15 @@ export const AdminDashboard: React.FC = () => {
               <button onClick={() => setIsEditMatchModalOpen(false)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleUpdateMatch} className="p-6 overflow-y-auto max-h-[70vh] space-y-6">
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="col-span-2">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="col-span-1 md:col-span-2">
                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Match Title</label>
                    <input required type="text" value={editingMatch.title} onChange={e => setEditingMatch({...editingMatch, title: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500" />
                  </div>
                  
                  <div>
                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Category Event</label>
-                   <select value={editingMatch.type} onChange={e => setEditingMatch({...editingMatch, type: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500">
+                   <select value={editingMatch.type} onChange={e => { const val = e.target.value; setEditingMatch({...editingMatch, type: val, map: val}); }} className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-white focus:outline-none focus:border-yellow-500">
                       <option value="TDM">TDM</option>
                       <option value="Erangel">Erangel</option>
                       <option value="Miramar">Miramar</option>
@@ -5917,7 +6654,7 @@ export const AdminDashboard: React.FC = () => {
                  </div>
                  <PrizeDistributionEditor match={editingMatch} setMatch={setEditingMatch} />
                  
-                 <div className="col-span-2">
+                 <div className="col-span-1 md:col-span-2">
                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Match Image (Optional)</label>
                    <div className="space-y-3">
                      <div className="flex gap-2">
@@ -5961,6 +6698,49 @@ export const AdminDashboard: React.FC = () => {
                      )}
                    </div>
                  </div>
+
+                 {(editingMatch.isScheduled || editingMatch.status === 'SCHEDULED') && (
+                   <div className="col-span-1 md:col-span-2 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 space-y-3">
+                     <div className="flex items-center justify-between">
+                       <span className="text-xs font-bold text-yellow-500 uppercase tracking-wider flex items-center gap-1.5">
+                         <CalendarClock className="w-4 h-4" />
+                         Scheduled Upload Settings
+                       </span>
+                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">
+                         STATUS: PENDING
+                       </span>
+                     </div>
+                     <div>
+                       <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5">
+                         Time of Upload (Date & Time)
+                       </label>
+                       <input 
+                         type="datetime-local" 
+                         value={editingMatch.scheduledPublishTime || ''} 
+                         onChange={e => setEditingMatch({...editingMatch, scheduledPublishTime: e.target.value})}
+                         className="w-full bg-zinc-900 border border-zinc-700 focus:border-yellow-500 rounded-xl p-3 text-white text-xs font-mono"
+                       />
+                     </div>
+                     <div className="flex items-center justify-between pt-2">
+                       <label className="text-xs font-bold text-zinc-300">
+                         Publish Match On Time (Auto-Publish)
+                       </label>
+                       <button
+                         type="button"
+                         onClick={() => setEditingMatch({...editingMatch, autoPublishOnTime: editingMatch.autoPublishOnTime === false ? true : false})}
+                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                           editingMatch.autoPublishOnTime !== false ? 'bg-yellow-500' : 'bg-zinc-800'
+                         }`}
+                       >
+                         <span
+                           className={`inline-block h-4 w-4 transform rounded-full bg-black transition-transform ${
+                             editingMatch.autoPublishOnTime !== false ? 'translate-x-6' : 'translate-x-1'
+                           }`}
+                         />
+                       </button>
+                     </div>
+                   </div>
+                 )}
                </div>
                
                <button type="submit" className="w-full bg-yellow-500 text-black font-black uppercase tracking-widest py-4 rounded-xl hover:bg-yellow-400 transition-colors mt-6 shadow-[0_0_20px_rgba(234,179,8,0.2)]">
@@ -6553,96 +7333,85 @@ export const AdminDashboard: React.FC = () => {
       {/* Confirmation Modal Overlay */}
       {/* Banner Modal */}
       {isBannerModalOpen && (
-        <div className="fixed inset-0 bg-black/80  z-[100] flex items-center justify-center p-4 text-left">
+        <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 text-left">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-zinc-950 border border-yellow-500/20 w-full max-w-md rounded-3xl overflow-hidden shadow-[0_25px_50px_-12px_rgba(234,179,8,0.2)]"
+            className="bg-zinc-950 border border-yellow-500/20 w-full max-w-md max-h-[90vh] rounded-3xl overflow-hidden shadow-[0_25px_50px_-12px_rgba(234,179,8,0.2)] flex flex-col"
           >
-            <div className="bg-yellow-500 p-6 flex justify-between items-center">
+            <div className="bg-yellow-500 p-6 flex justify-between items-center shrink-0">
                <h3 className="text-black font-black uppercase tracking-widest">{editingBanner ? 'Edit Banner' : 'Add New Banner'}</h3>
                <button onClick={() => setIsBannerModalOpen(false)} className="text-black/50 hover:text-black"><X className="w-6 h-6" /></button>
             </div>
-            <form onSubmit={handleSaveBanner} className="p-6 space-y-5">
-               <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest block mb-2">Banner Image</label>
-                  <div className="flex flex-col space-y-3">
-                    <div className="flex gap-2">
-                      <input 
-                        type="text"
-                        value={newBanner.imageUrl || ''}
-                        onChange={(e) => setNewBanner({...newBanner, imageUrl: e.target.value})}
-                        placeholder="Paste Image URL or upload file"
-                        className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
-                      />
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        className="hidden" 
-                        id="banner-image-upload"
-                        onChange={async (e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            const url = await handleImageUpload(e.target.files[0]);
-                            if (url) setNewBanner({...newBanner, imageUrl: url});
-                          }
-                        }} 
-                      />
-                      <label 
-                        htmlFor="banner-image-upload" 
-                        className={`flex items-center space-x-1.5 px-4 py-2.5 rounded-xl border border-yellow-500/30 bg-yellow-500/10 text-yellow-500 font-bold text-xs uppercase cursor-pointer hover:bg-yellow-500 hover:text-black transition-all whitespace-nowrap ${isUploadingImg ? 'opacity-50 pointer-events-none' : ''}`}
-                      >
-                        {isUploadingImg ? <div className="w-4 h-4 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" /> : <><ImageIcon className="w-4 h-4" /><span>Upload</span></>}
-                      </label>
+            <div className="overflow-y-auto overflow-x-hidden no-scrollbar">
+              <form onSubmit={handleSaveBanner} className="p-6 space-y-5">
+                 <div>
+                    <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest block mb-2">Banner Image</label>
+                    <div className="flex flex-col space-y-3">
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          value={newBanner.imageUrl || ''}
+                          onChange={(e) => setNewBanner({...newBanner, imageUrl: e.target.value})}
+                          placeholder="Paste Image URL or upload file"
+                          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
+                        />
+                        <input 
+                          type="file" 
+                          accept="image/*"
+                          className="hidden" 
+                          id="banner-image-upload"
+                          onChange={async (e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              const url = await handleImageUpload(e.target.files[0]);
+                              if (url) setNewBanner({...newBanner, imageUrl: url});
+                            }
+                          }} 
+                        />
+                        <label 
+                          htmlFor="banner-image-upload" 
+                          className={`flex items-center justify-center shrink-0 space-x-1.5 px-4 py-2.5 rounded-xl border border-yellow-500/30 bg-yellow-500/10 text-yellow-500 font-bold text-xs uppercase cursor-pointer hover:bg-yellow-500 hover:text-black transition-all whitespace-nowrap ${isUploadingImg ? 'opacity-50 pointer-events-none' : ''}`}
+                        >
+                          {isUploadingImg ? <div className="w-4 h-4 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" /> : <><ImageIcon className="w-4 h-4" /><span>Upload</span></>}
+                        </label>
+                      </div>
+                      {newBanner.imageUrl && (
+                        <img src={newBanner.imageUrl} alt="Banner Preview" className="w-full h-32 object-cover rounded-xl border border-zinc-800" />
+                      )}
                     </div>
-                    {newBanner.imageUrl && (
-                      <img src={newBanner.imageUrl} alt="Banner Preview" className="w-full h-32 object-cover rounded-xl border border-zinc-800" />
-                    )}
-                  </div>
-               </div>
-               <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest block mb-2">Target Link / URL (Optional)</label>
-                  <input 
-                    type="text" 
-                    value={newBanner.link || ''}
-                    onChange={(e) => setNewBanner({...newBanner, link: e.target.value})}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-yellow-500/50"
-                    placeholder="e.g. https://wa.me/923001234567 or https://..."
-                  />
-                  <p className="text-[10px] text-zinc-500 mt-1">
-                    Clicking banner will open this link in external Chrome / app (WhatsApp, Telegram, Website, etc.).
-                  </p>
-               </div>
-               <div>
-                  <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest block mb-2">Banner Type</label>
-                  <select 
-                    value={newBanner.type}
-                    onChange={(e) => setNewBanner({...newBanner, type: e.target.value as any})}
-                    className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-yellow-500/50"
-                  >
-                     <option value="home">Home Slider</option>
-                     <option value="event">Event Banner</option>
-                     <option value="offer">Special Offer</option>
-                     <option value="popup">Popup Modal</option>
-                  </select>
-               </div>
-               <div className="flex items-center space-x-3 p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800">
-                  <input 
-                    type="checkbox" 
-                    id="banner-active"
-                    checked={newBanner.isActive}
-                    onChange={(e) => setNewBanner({...newBanner, isActive: e.target.checked})}
-                    className="w-5 h-5 rounded border-zinc-700 bg-zinc-800 text-yellow-500 focus:ring-0"
-                  />
-                  <label htmlFor="banner-active" className="text-sm text-zinc-300 font-bold cursor-pointer">Active Banner</label>
-               </div>
-               
-               <button 
-                 type="submit"
-                 className="w-full bg-yellow-500 text-black py-4 rounded-2xl font-black uppercase tracking-[0.2em] shadow-lg hover:bg-yellow-400 transition-all active:scale-95"
-               >
-                 {editingBanner ? 'Update Banner' : 'Publish Banner'}
-               </button>
-            </form>
+                 </div>
+                 <div>
+                    <label className="text-[10px] text-zinc-500 font-black uppercase tracking-widest block mb-2">Target Link / URL (Optional)</label>
+                    <input 
+                      type="text" 
+                      value={newBanner.link || ''}
+                      onChange={(e) => setNewBanner({...newBanner, link: e.target.value})}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-yellow-500/50"
+                      placeholder="e.g. https://wa.me/923001234567 or https://..."
+                    />
+                    <p className="text-[10px] text-zinc-500 mt-1">
+                      Clicking banner will open this link in external Chrome / app (WhatsApp, Telegram, Website, etc.).
+                    </p>
+                 </div>
+                 <div className="flex items-center space-x-3 p-4 bg-zinc-900/50 rounded-2xl border border-zinc-800">
+                    <input 
+                      type="checkbox" 
+                      id="banner-active"
+                      checked={newBanner.isActive}
+                      onChange={(e) => setNewBanner({...newBanner, isActive: e.target.checked})}
+                      className="w-5 h-5 rounded border-zinc-700 bg-zinc-800 text-yellow-500 focus:ring-0"
+                    />
+                    <label htmlFor="banner-active" className="text-sm text-zinc-300 font-bold cursor-pointer">Active Banner</label>
+                 </div>
+                 
+                 <button 
+                   type="submit"
+                   className="w-full bg-yellow-500 text-black py-4 rounded-2xl font-black uppercase tracking-[0.2em] shadow-lg hover:bg-yellow-400 transition-all active:scale-95"
+                 >
+                   {editingBanner ? 'Update Banner' : 'Publish Banner'}
+                 </button>
+              </form>
+            </div>
           </motion.div>
         </div>
       )}
@@ -6816,8 +7585,11 @@ const MonitorPlay = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const StatCard = ({ title, value, sub, icon: Icon, color, hideSub = false }: any) => (
-  <div className="bg-zinc-900/50 border border-yellow-500/20 rounded-2xl p-4 flex flex-col justify-between group hover:bg-zinc-900 transition-colors">
+const StatCard = ({ title, value, sub, icon: Icon, color, hideSub = false, onClick }: any) => (
+  <div 
+    onClick={onClick}
+    className={`bg-zinc-900/50 border border-yellow-500/20 rounded-2xl p-4 flex flex-col justify-between group transition-colors ${onClick ? 'cursor-pointer hover:bg-zinc-800 hover:border-yellow-500/50' : 'hover:bg-zinc-900'}`}
+  >
     <div className="flex justify-between items-start mb-3">
       <div className={`p-2 rounded-xl bg-zinc-950 border border-zinc-800 ${color} group-hover:scale-110 transition-transform shadow-[0_0_10px_rgba(234,179,8,0.05)]`}>
         <Icon className="w-4 h-4" />

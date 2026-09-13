@@ -121,22 +121,30 @@ export interface AdminRole {
   adminName: string;
   deviceId?: string;
   permissions: {
-    dashboard: boolean;
-    users: boolean;
-    tournaments: boolean;
-    results: boolean;
-    wallet: boolean;
-    transactions: boolean;
-    withdrawals: boolean;
-    leaderboard: boolean;
-    referrals: boolean;
-    notifications: boolean;
+    dashboard?: boolean;
+    support?: boolean;
+    users?: boolean;
+    schedule_matches?: boolean;
+    tournaments?: boolean;
+    results?: boolean;
+    announcements?: boolean;
+    popups?: boolean;
+    transactions?: boolean;
+    withdrawals?: boolean;
+    wallet?: boolean;
+    promo_codes?: boolean;
+    leaderboard?: boolean;
+    referrals?: boolean;
+    notifications?: boolean;
     teams?: boolean;
-    banners: boolean;
-    payment_settings: boolean;
-    settings: boolean;
-    roles: boolean;
-    system: boolean;
+    banners?: boolean;
+    payment_settings?: boolean;
+    settings?: boolean;
+    themes?: boolean;
+    pin_resets?: boolean;
+    roles?: boolean;
+    system?: boolean;
+    [key: string]: boolean | undefined;
   };
   createdAt: string;
 }
@@ -149,7 +157,7 @@ export interface Tournament {
   time: string;
   date?: string;
   day?: string;
-  status: 'LIVE' | 'UPCOMING' | 'COMPLETED' | 'CANCELLED';
+  status: 'LIVE' | 'UPCOMING' | 'COMPLETED' | 'CANCELLED' | 'SCHEDULED' | string;
   prizePool: number;
   entryFee: number;
   spotsTotal: number;
@@ -166,6 +174,11 @@ export interface Tournament {
   autoStart?: boolean;
   maxPlayers?: number;
   minPlayers?: number;
+  isDeleted?: boolean;
+  isScheduled?: boolean;
+  scheduledPublishTime?: string;
+  autoPublishOnTime?: boolean;
+  publishedAt?: string;
 }
 
 export interface Transaction {

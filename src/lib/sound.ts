@@ -324,6 +324,242 @@ export function stopAuthBgSound() {
   }
 }
 
+/* ==========================================================================
+   IN-APP BACKGROUND MUSIC MANAGER (Home, Matches, Wallet, Profile, etc.)
+   ========================================================================== */
+
+export interface MusicTrack {
+  id: string;
+  name: string;
+  subtitle: string;
+  src: string;
+  isDefault?: boolean;
+}
+
+export const APP_MUSIC_TRACKS: MusicTrack[] = [
+  {
+    id: 'home-default',
+    name: 'MAIN THEME',
+    subtitle: 'PUBG Official Theme Song',
+    src: '/home-default.mp3',
+    isDefault: true,
+  },
+  {
+    id: 'WHISPER-PRIMEWOOD',
+    name: 'WHISPER',
+    subtitle: 'PrimeWood Genisis Theme Song',
+    src: '/WHISPER-PRIMEWOOD.mp3',
+  },
+  {
+    id: 'HELIOS',
+    name: 'HELIOS',
+    subtitle: 'PUBG 4.4 Theme Song',
+    src: '/HELIOS.mp3',
+  },
+];
+
+const STORAGE_MUTED_KEY = 'pk_arena_music_muted';
+const STORAGE_TRACK_KEY = 'pk_arena_music_track';
+const STORAGE_VOLUME_KEY = 'pk_arena_music_volume';
+
+let inAppAudio: HTMLAudioElement | null = null;
+let inAppTimeout: any = null;
+let isInAppAllowed = false;
+
+export interface MusicState {
+  isMuted: boolean;
+  trackId: string;
+  volume: number;
+  isPlaying: boolean;
+}
+
+type MusicListener = (state: MusicState) => void;
+const musicListeners = new Set<MusicListener>();
+
+export function getMusicSettings() {
+  if (typeof window === 'undefined') {
+    return { isMuted: false, trackId: 'home-default', volume: 0.65 };
+  }
+  const isMuted = localStorage.getItem(STORAGE_MUTED_KEY) === 'true';
+  const trackId = localStorage.getItem(STORAGE_TRACK_KEY) || 'home-default';
+  const volume = parseFloat(localStorage.getItem(STORAGE_VOLUME_KEY) || '0.65');
+  return { isMuted, trackId, volume };
+}
+
+function notifyMusicListeners() {
+  const settings = getMusicSettings();
+  const isPlaying = inAppAudio !== null && !inAppAudio.paused && !settings.isMuted;
+  const state: MusicState = { ...settings, isPlaying };
+  musicListeners.forEach(fn => fn(state));
+}
+
+export function subscribeMusicSettings(listener: MusicListener): () => void {
+  musicListeners.add(listener);
+  const settings = getMusicSettings();
+  const isPlaying = inAppAudio !== null && !inAppAudio.paused && !settings.isMuted;
+  listener({ ...settings, isPlaying });
+  return () => {
+    musicListeners.delete(listener);
+  };
+}
+
+/**
+ * Start In-App background music with 500ms delay.
+ * Runs continuously in loop across Home, Matches, Wallet, Profile, etc.
+ */
+export function startInAppMusic(delayMs = 500) {
+  isInAppAllowed = true;
+  const { isMuted, trackId, volume } = getMusicSettings();
+
+  if (isMuted) {
+    notifyMusicListeners();
+    return;
+  }
+
+  if (inAppTimeout) {
+    clearTimeout(inAppTimeout);
+    inAppTimeout = null;
+  }
+
+  inAppTimeout = setTimeout(() => {
+    if (!isInAppAllowed) return;
+
+    try {
+      const currentTrack = APP_MUSIC_TRACKS.find(t => t.id === trackId) || APP_MUSIC_TRACKS[0];
+
+      // If already playing the requested track, do nothing
+      if (inAppAudio && !inAppAudio.paused && inAppAudio.src.includes(encodeURI(currentTrack.src).replace(/^\//, ''))) {
+        notifyMusicListeners();
+        return;
+      }
+
+      if (!inAppAudio) {
+        inAppAudio = new Audio(currentTrack.src);
+      } else if (!inAppAudio.src.includes(encodeURI(currentTrack.src).replace(/^\//, ''))) {
+        inAppAudio.pause();
+        inAppAudio = new Audio(currentTrack.src);
+      }
+
+      inAppAudio.loop = true;
+      inAppAudio.volume = volume;
+
+      const playPromise = inAppAudio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            notifyMusicListeners();
+          })
+          .catch(() => {
+            // Autoplay restriction: wait for user's next tap/click/touch
+            const handleFirstGesture = () => {
+              const currentSettings = getMusicSettings();
+              if (isInAppAllowed && !currentSettings.isMuted && inAppAudio && inAppAudio.paused) {
+                inAppAudio.play().then(notifyMusicListeners).catch(() => {});
+              }
+              window.removeEventListener('click', handleFirstGesture);
+              window.removeEventListener('touchstart', handleFirstGesture);
+              window.removeEventListener('pointerdown', handleFirstGesture);
+            };
+            window.addEventListener('click', handleFirstGesture, { once: true });
+            window.addEventListener('touchstart', handleFirstGesture, { once: true });
+            window.addEventListener('pointerdown', handleFirstGesture, { once: true });
+          });
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }, delayMs);
+}
+
+/**
+ * Stop In-App background music (e.g. when user logs out or returns to login screen)
+ */
+export function stopInAppMusic() {
+  isInAppAllowed = false;
+  if (inAppTimeout) {
+    clearTimeout(inAppTimeout);
+    inAppTimeout = null;
+  }
+  if (inAppAudio) {
+    try {
+      inAppAudio.pause();
+      inAppAudio.currentTime = 0;
+    } catch (e) {}
+    inAppAudio = null;
+  }
+  notifyMusicListeners();
+}
+
+/**
+ * Toggle or set mute status.
+ * If unmuted, music resumes after 500ms.
+ */
+export function setMusicMuted(muted: boolean) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_MUTED_KEY, muted ? 'true' : 'false');
+  }
+
+  if (muted) {
+    if (inAppTimeout) {
+      clearTimeout(inAppTimeout);
+      inAppTimeout = null;
+    }
+    if (inAppAudio) {
+      try {
+        inAppAudio.pause();
+      } catch (e) {}
+    }
+    notifyMusicListeners();
+  } else {
+    // Unmuted: start playing after 500ms delay
+    startInAppMusic(500);
+    notifyMusicListeners();
+  }
+}
+
+/**
+ * Select a soundtrack.
+ * Stops previous track and starts new track after 500ms delay.
+ */
+export function setMusicTrack(trackId: string) {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_TRACK_KEY, trackId);
+  }
+
+  // Stop currently playing track immediately
+  if (inAppTimeout) {
+    clearTimeout(inAppTimeout);
+    inAppTimeout = null;
+  }
+  if (inAppAudio) {
+    try {
+      inAppAudio.pause();
+      inAppAudio = null;
+    } catch (e) {}
+  }
+  notifyMusicListeners();
+
+  // If not muted, start new track after 500ms delay
+  const { isMuted } = getMusicSettings();
+  if (!isMuted) {
+    startInAppMusic(500);
+  }
+}
+
+/**
+ * Adjust music volume (0.0 to 1.0)
+ */
+export function setMusicVolume(vol: number) {
+  const clamped = Math.max(0, Math.min(1, vol));
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_VOLUME_KEY, clamped.toString());
+  }
+  if (inAppAudio) {
+    inAppAudio.volume = clamped;
+  }
+  notifyMusicListeners();
+}
+
 /**
  * Initialize global button click sound listener
  * Listens for user taps/clicks on buttons, links, or clickable elements

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Camera, Edit2, Gamepad2, Trophy, Crosshair, Users, Gift, Share2, LogOut, Copy, Calendar, MapPin, Hash, Coins as CoinsIcon, Wallet as WalletIcon, Clock, Shield, Medal, BarChart, Skull, User, X, CheckCircle2, Save, Play, Lightbulb, AlertTriangle, Info, Globe, Star, FileText, Lock, Trash2, ChevronRight, Headset } from 'lucide-react';
+import { Camera, Edit2, Gamepad2, Trophy, Crosshair, Users, Gift, Share2, LogOut, Copy, Calendar, MapPin, Hash, Coins as CoinsIcon, Wallet as WalletIcon, Clock, Shield, Medal, BarChart, Skull, User, X, CheckCircle2, Save, Play, Lightbulb, AlertTriangle, Info, Globe, Star, FileText, Lock, Trash2, ChevronRight, Headset, Music } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,8 @@ import { useApp } from '../context/AppContext';
 import { compressImage } from '../lib/imageUtils';
 import { MyTeamModal } from '../components/MyTeamModal';
 import { TeamsScreen } from '../components/TeamsScreen';
+import { MusicSettingsModal } from '../components/MusicSettingsModal';
+import { stopInAppMusic } from '../lib/sound';
 import { PK_COIN_ICON, PK_LOGO_IMAGE, DEFAULT_AVATAR, SUPPORT_ICON } from '../lib/assets';
 import { firestore } from '../lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
@@ -188,6 +190,7 @@ export function Profile() {
   };
 
   const handleLogout = async () => {
+    stopInAppMusic();
     await logout();
     navigate('/');
   };
@@ -450,6 +453,7 @@ export function Profile() {
         <div className="bg-pk-card border border-pk-border rounded-2xl overflow-hidden divide-y divide-zinc-900">
           {[
             { id: 'CUSTOMER_SUPPORT', label: 'Customer Support', subtitle: 'Chat With Admin', icon: Headset },
+            { id: 'MUSIC', label: 'Music', subtitle: 'BGM & soundtracks', icon: Music },
             { id: 'HOW_TO_JOIN', label: 'How to Join', subtitle: 'YouTube video link', icon: Play },
             { id: 'HALAL_OR_HARAM', label: 'Halal or Haram', subtitle: 'Religious stance', icon: Shield },
             { id: 'ABOUT', label: 'About', subtitle: 'App details & version', icon: Info },
@@ -575,6 +579,7 @@ export function Profile() {
 
       {/* Modals */}
       {document.getElementById('modal-root') ? createPortal((<>
+      <MusicSettingsModal isOpen={activeModal === 'MUSIC'} onClose={() => setActiveModal(null)} />
       <AnimatePresence>
         {(activeModal === 'My Team' || activeModal === 'TEAMS') && (
           <TeamsScreen onClose={() => setActiveModal(null)} />
@@ -1399,6 +1404,7 @@ export function Profile() {
       </AnimatePresence>
 
 </>), document.getElementById('modal-root')!) : (<>
+      <MusicSettingsModal isOpen={activeModal === 'MUSIC'} onClose={() => setActiveModal(null)} />
       <AnimatePresence>
         {(activeModal === 'My Team' || activeModal === 'TEAMS') && (
           <TeamsScreen onClose={() => setActiveModal(null)} />

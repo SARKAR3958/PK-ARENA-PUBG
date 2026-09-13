@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { ref, get } from 'firebase/database';
 import { useApp } from '../context/AppContext';
+import { playDepositSuccessSound, playErrorSound } from '../lib/sound';
 import { PK_COIN_ICON } from '../lib/assets';
 
 
@@ -75,6 +76,33 @@ export function Home() {
   const [settings, setSettings] = useState<any>(null);
   const [isJoining, setIsJoining] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [joinSuccessModal, setJoinSuccessModal] = useState<{show: boolean, matchName: string, slotNo: number | null} | null>(null);
+
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
+    }
+    if (isRightSwipe) {
+      setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -236,12 +264,12 @@ export function Home() {
     }
 
     if (isMatchRegistrationClosed(t)) {
-      toast.error('Registration is closed for this match!');
+      playErrorSound(); toast.error('Registration is closed for this match!');
       return;
     }
     
     if (currentUser && currentUser.walletBalance < (t.entryFee || 0)) {
-      toast.error('Insufficient coins!');
+      playErrorSound(); toast.error('Insufficient coins!');
       return;
     }
     
@@ -265,7 +293,7 @@ export function Home() {
   const handleConfirmEntry = async () => {
     if (isJoining) return;
     if (!selectedSlot) {
-      toast.error('Please select a slot first');
+      playErrorSound(); toast.error('Please select a slot first');
       return;
     }
     
@@ -284,10 +312,21 @@ export function Home() {
   const executeJoinMatch = async (teamData: any[]) => {
     setIsJoining(true);
     try {
+      const matchTitle = selectedTournament.title;
+      const slot = selectedSlot;
       await joinMatch(selectedTournament, selectedSlot, teamData);
+      
+      playDepositSuccessSound();
+      setJoinSuccessModal({
+        show: true,
+        matchName: matchTitle,
+        slotNo: slot
+      });
+      
       setSelectedTournament(null);
       setShowTeamModal(false);
     } catch (err: any) {
+      playErrorSound();
       toast.error(err.message || 'Failed to join match');
     } finally {
       setIsJoining(false);
@@ -311,6 +350,8 @@ export function Home() {
 
   const filteredTournaments = tournaments.filter(t => {
     if (!t || t.isDeleted || !t.title) return false;
+    // Scheduled matches are not visible to players until published
+    if (t.isScheduled || t.status === 'SCHEDULED') return false;
 
     // Check mode matching
     const tMode = (t.mode || 'SOLO').toUpperCase().trim();
@@ -362,7 +403,12 @@ export function Home() {
     >
       {/* Banner */}
       {!isTournamentsPage && banners.length > 0 && (
-      <div className="mx-4 mt-2 h-44 rounded-2xl overflow-hidden relative border border-yellow-900/50 shadow-lg select-none">
+      <div 
+        className="mx-2 sm:mx-3 mt-2.5 h-48 sm:h-52 rounded-2xl overflow-hidden relative border border-yellow-900/50 shadow-lg select-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {banners.map((banner, idx) => {
           const isCurrent = idx === currentBannerIndex;
           const hasLink = Boolean(banner.link && banner.link.trim());
@@ -1396,7 +1442,7 @@ export function Home() {
                   onClick={() => {
                     const isIncomplete = teamMembers.some(m => !m.inGameName.trim() || !m.gameUid.trim());
                     if (isIncomplete) {
-                      toast.error('Please fill in all teammate details');
+                      playErrorSound(); toast.error('Please fill in all teammate details');
                       return;
                     }
                     executeJoinMatch(teamMembers);
@@ -1509,6 +1555,45 @@ export function Home() {
         </AnimatePresence>,
         document.body
       )}
+
+
+      {/* Join Success Modal */}
+      <AnimatePresence>
+        {joinSuccessModal?.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-zinc-950 border border-yellow-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl overflow-hidden relative text-center"
+            >
+              {/* Confetti or simple icon */}
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-500/20 border border-yellow-500 flex items-center justify-center">
+                <Trophy className="w-8 h-8 text-yellow-500" />
+              </div>
+              <h2 className="text-xl font-black text-white uppercase tracking-wider mb-2">Registration Success</h2>
+              <p className="text-zinc-400 text-sm mb-4">
+                You have successfully joined <span className="text-yellow-500 font-bold">{joinSuccessModal.matchName}</span>
+              </p>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 mb-6 inline-block w-full">
+                <span className="text-xs text-zinc-500 uppercase tracking-widest block mb-1">Slot No</span>
+                <span className="text-xl font-black text-white">{joinSuccessModal.slotNo || 'Auto'}</span>
+              </div>
+              <button
+                onClick={() => setJoinSuccessModal(null)}
+                className="w-full bg-gradient-pk bg-gradient-pk-hover text-black font-black py-3 rounded-xl text-sm uppercase tracking-widest shadow-lg shadow-yellow-500/20 active:scale-[0.98]"
+              >
+                OK
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </motion.div>
   );

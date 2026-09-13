@@ -1,4 +1,6 @@
+const fs = require('fs');
 
+let content = `
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -42,7 +44,7 @@ async function startServer() {
         {
           headers: {
             "Content-Type": "application/json; charset=utf-8",
-            Authorization: `Basic ${restApiKey}`,
+            Authorization: \`Basic \${restApiKey}\`,
           },
         }
       );
@@ -70,7 +72,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(\`Server running on http://localhost:\${PORT}\`);
   });
 }
 
@@ -82,60 +84,36 @@ const sendScheduledPush = async (hour) => {
     // Check lock to avoid duplicates if container scales
     const dateFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi' });
     const dateString = dateFormatter.format(new Date());
-    const pushKey = `${dateString}-${hour}`;
+    const pushKey = \`\${dateString}-\${hour}\`;
     
-    const pushRes = await axios.get(`${dbUrl}/systemSettings/lastAutoPush.json`);
+    const pushRes = await axios.get(\`\${dbUrl}/systemSettings/lastAutoPush.json\`);
     if (pushRes.data === pushKey) {
        console.log("Push already sent for", pushKey);
        return;
     }
     
     // Lock it
-    await axios.put(`${dbUrl}/systemSettings/lastAutoPush.json`, JSON.stringify(pushKey));
+    await axios.put(\`\${dbUrl}/systemSettings/lastAutoPush.json\`, JSON.stringify(pushKey));
 
-    const dbRes = await axios.get(`${dbUrl}/appSettings.json`);
+    const dbRes = await axios.get(\`\${dbUrl}/appSettings.json\`);
     const appSettings = dbRes.data;
     if (!appSettings || !appSettings.onesignalAppId || !appSettings.onesignalRestApiKey) {
       console.log("Missing OneSignal config for auto push");
       return;
     }
     
-    const getNotificationForHour = (targetHour: number) => {
-      switch (targetHour) {
-        case 12:
-          return {
-            title: "🔥 PK ARENA PUBG",
-            message: "Don't miss today's exciting matches!"
-          };
-        case 15:
-          return {
-            title: "🏆 Your Next Victory Awaits!",
-            message: "Open PK ARENA PUBG and start playing."
-          };
-        case 18:
-          return {
-            title: "🎯 The Battle Is On!",
-            message: "Jump now in PK ARENA PUBG, play hard, and show them what you’ve got"
-          };
-        case 21:
-          return {
-            title: "💎 One More Battle Tonight?",
-            message: "Your next win could be waiting. Come back and play!"
-          };
-        default:
-          return {
-            title: "🔥 PK ARENA PUBG",
-            message: "Don't miss today's exciting matches!"
-          };
-      }
-    };
-
-    const scheduledPush = getNotificationForHour(Number(hour));
+    const templates = [
+      { title: "💎 Come Back & Play!", message: "Your next reward could be waiting." },
+      { title: "🏆 Your Next Victory Awaits!", message: "Open the app and start playing." },
+      { title: "🔥 PK ARENA PUBG", message: "Don't miss today's exciting matches!" },
+      { title: "🎮 Hey Gamer!", message: "Your battles are waiting. Come back and play!" }
+    ];
+    const randomPush = templates[Math.floor(Math.random() * templates.length)];
 
     const payload = {
       app_id: appSettings.onesignalAppId,
-      headings: { en: scheduledPush.title },
-      contents: { en: scheduledPush.message },
+      headings: { en: randomPush.title },
+      contents: { en: randomPush.message },
       included_segments: ["All"],
     };
 
@@ -145,20 +123,20 @@ const sendScheduledPush = async (hour) => {
       {
         headers: {
           "Content-Type": "application/json; charset=utf-8",
-          Authorization: `Basic ${appSettings.onesignalRestApiKey}`,
+          Authorization: \`Basic \${appSettings.onesignalRestApiKey}\`,
         },
       }
     );
     
-    await axios.post(`${dbUrl}/adminNotificationHistory.json`, {
-      title: scheduledPush.title,
-      message: scheduledPush.message,
+    await axios.post(\`\${dbUrl}/adminNotificationHistory.json\`, {
+      title: randomPush.title,
+      message: randomPush.message,
       type: "AUTO",
       target: "ALL",
       createdAt: Date.now()
     });
 
-    console.log(`Successfully sent auto notification for ${hour} PM PKT`, response.data);
+    console.log(\`Successfully sent auto notification for \${hour} PM PKT\`, response.data);
   } catch (error) {
     console.error("Scheduled push error:", error.response?.data || error.message);
   }
@@ -169,11 +147,11 @@ const runDailyReset = async () => {
         const dateFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi' });
         const dateString = dateFormatter.format(new Date());
         
-        const resetRes = await axios.get(`${dbUrl}/systemSettings/lastDailyReset.json`);
+        const resetRes = await axios.get(\`\${dbUrl}/systemSettings/lastDailyReset.json\`);
         if (resetRes.data !== dateString) {
-            await axios.delete(`${dbUrl}/notifications.json`);
-            await axios.delete(`${dbUrl}/userNotifications.json`);
-            await axios.put(`${dbUrl}/systemSettings/lastDailyReset.json`, JSON.stringify(dateString));
+            await axios.delete(\`\${dbUrl}/notifications.json\`);
+            await axios.delete(\`\${dbUrl}/userNotifications.json\`);
+            await axios.put(\`\${dbUrl}/systemSettings/lastDailyReset.json\`, JSON.stringify(dateString));
             console.log("Daily notification reset complete for", dateString);
         }
     } catch (e) {
@@ -197,3 +175,7 @@ cron.schedule("0 21 * * *", () => sendScheduledPush(21), { timezone: "Asia/Karac
 cron.schedule("0 0 * * *", () => runDailyReset(), { timezone: "Asia/Karachi" });
 
 startServer();
+`;
+
+fs.writeFileSync('server.ts', content);
+console.log('Fixed server.ts');

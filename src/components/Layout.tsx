@@ -10,6 +10,7 @@ import { Headset } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { firestore } from '../lib/firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { startInAppMusic, stopInAppMusic } from '../lib/sound';
 
 export function Layout() {
   const location = useLocation();
@@ -39,6 +40,24 @@ export function Layout() {
 
     return () => unsubscribe();
   }, [currentUser?.uid, isSupportPage]);
+
+  // Global In-App background music running across Home, Matches, Wallet, Profile, etc.
+  // Starts 500ms after landing on Home screen or completing PIN setup
+  useEffect(() => {
+    const isAdmin = currentUser?.role === 'admin' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin'));
+    const isPinBlocking = currentUser && !isAdmin && !currentUser.appLockPin;
+
+    if (!isPinBlocking) {
+      startInAppMusic(500);
+    }
+
+    return () => {
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+      if (currentPath === '/' || currentPath === '/register') {
+        stopInAppMusic();
+      }
+    };
+  }, [currentUser?.appLockPin, currentUser?.uid]);
 
   useEffect(() => {
     let timeoutId: any;
