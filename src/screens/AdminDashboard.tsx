@@ -29,6 +29,7 @@ import { Tournament, User, Transaction, Banner, AppSettings, AdminRole, SupportM
 import { format } from 'date-fns';
 import { PinResetRequestsManager } from '../components/PinResetRequestsManager';
 import { ScheduledMatchesTab } from '../components/admin/ScheduledMatchesTab';
+import { DepositOffersModal } from '../components/admin/DepositOffersModal';
 import { PK_COIN_ICON, PK_LOGO_IMAGE, DEFAULT_AVATAR, EASYPAISA_LOGO, JAZZCASH_LOGO, SADAPAY_LOGO, NAYAPAY_LOGO } from '../lib/assets';
 import { 
   collection, 
@@ -989,6 +990,26 @@ export const AdminDashboard: React.FC = () => {
     return devId;
   };
 
+  const formatTimeTo12Hour = (timeStr?: string) => {
+    if (!timeStr) return 'TBD';
+    try {
+      if (timeStr.toUpperCase().includes('AM') || timeStr.toUpperCase().includes('PM')) {
+        return timeStr;
+      }
+      const parts = timeStr.split(':');
+      if (parts.length < 2) return timeStr;
+      let hours = parseInt(parts[0], 10);
+      const m = parts[1].slice(0, 2);
+      if (isNaN(hours)) return timeStr;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      return `${hours.toString().padStart(2, '0')}:${m} ${ampm}`;
+    } catch (e) {
+      return timeStr;
+    }
+  };
+
   const [banners, setBanners] = useState<Banner[]>([]);
   const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
@@ -1023,6 +1044,7 @@ export const AdminDashboard: React.FC = () => {
   const [notificationMessage, setNotificationMessage] = useState('');
   const [notificationUrl, setNotificationUrl] = useState('');
   const [isSendingNotification, setIsSendingNotification] = useState(false);
+  const [showDepositOffersModal, setShowDepositOffersModal] = useState(false);
   const [adminKey, setAdminKey] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard');
   
@@ -3668,7 +3690,7 @@ export const AdminDashboard: React.FC = () => {
                                   {/* Time Right Me */}
                                   <span className="flex items-center gap-2 font-medium">
                                      <Clock className="w-3.5 h-3.5 text-yellow-400" />
-                                     <span>{t.time || 'TBD'}</span>
+                                     <span>{formatTimeTo12Hour(t.time)}</span>
                                   </span>
                                 </div>
                             </div>
@@ -3750,20 +3772,34 @@ export const AdminDashboard: React.FC = () => {
                         <p className="text-[10px] text-zinc-500 mt-1">Approve or reject deposit requests from users</p>
                      </div>
                      
-                     {/* Sub tabs */}
-                     <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800 shrink-0">
+                     {/* Sub tabs & Offer Settings */}
+                     <div className="flex flex-wrap items-center gap-2.5">
                         <button
-                           onClick={() => setDepositSubTab('pending')}
-                           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${depositSubTab === 'pending' ? 'bg-yellow-500 text-black' : 'text-zinc-400 hover:text-zinc-200'}`}
+                           onClick={() => setShowDepositOffersModal(true)}
+                           className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                           title="Manage Deposit Offers"
                         >
-                           Pending Deposits ({pendingDepositsList.length})
+                           <Gift className="w-4 h-4 text-yellow-500" />
+                           <span>Deposit Offers</span>
+                           {settings?.depositOffersEnabled && (
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] ml-0.5 animate-pulse" />
+                           )}
                         </button>
-                        <button
-                           onClick={() => setDepositSubTab('history')}
-                           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${depositSubTab === 'history' ? 'bg-yellow-500 text-black' : 'text-zinc-400 hover:text-zinc-200'}`}
-                        >
-                           Deposit History ({historyDepositsList.length})
-                        </button>
+
+                        <div className="flex bg-zinc-950 p-1 rounded-xl border border-zinc-800 shrink-0">
+                           <button
+                              onClick={() => setDepositSubTab('pending')}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${depositSubTab === 'pending' ? 'bg-yellow-500 text-black' : 'text-zinc-400 hover:text-zinc-200'}`}
+                           >
+                              Pending Deposits ({pendingDepositsList.length})
+                           </button>
+                           <button
+                              onClick={() => setDepositSubTab('history')}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${depositSubTab === 'history' ? 'bg-yellow-500 text-black' : 'text-zinc-400 hover:text-zinc-200'}`}
+                           >
+                              Deposit History ({historyDepositsList.length})
+                           </button>
+                        </div>
                      </div>
                   </div>
 
@@ -7329,6 +7365,12 @@ export const AdminDashboard: React.FC = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Deposit Offers Modal */}
+      <DepositOffersModal
+        isOpen={showDepositOffersModal}
+        onClose={() => setShowDepositOffersModal(false)}
+      />
 
       {/* Confirmation Modal Overlay */}
       {/* Banner Modal */}

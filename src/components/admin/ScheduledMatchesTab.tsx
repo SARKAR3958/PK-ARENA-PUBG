@@ -40,6 +40,26 @@ export const ScheduledMatchesTab: React.FC<ScheduledMatchesTabProps> = ({
   onRoomInfo,
   onRules,
 }) => {
+  const formatTimeTo12Hour = (timeStr?: string) => {
+    if (!timeStr) return 'TBD';
+    try {
+      if (timeStr.toUpperCase().includes('AM') || timeStr.toUpperCase().includes('PM')) {
+        return timeStr;
+      }
+      const parts = timeStr.split(':');
+      if (parts.length < 2) return timeStr;
+      let hours = parseInt(parts[0], 10);
+      const m = parts[1].slice(0, 2);
+      if (isNaN(hours)) return timeStr;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      return `${hours.toString().padStart(2, '0')}:${m} ${ampm}`;
+    } catch (e) {
+      return timeStr;
+    }
+  };
+
   const scheduledList = tournaments.filter(
     t => !t.isDeleted && (t.isScheduled || t.status === 'SCHEDULED')
   );
@@ -451,7 +471,7 @@ export const ScheduledMatchesTab: React.FC<ScheduledMatchesTabProps> = ({
                       </span>
                       <span className="flex items-center gap-2 font-medium">
                         <Clock className="w-3.5 h-3.5 text-yellow-400" />
-                        <span>{t.time || 'TBD'}</span>
+                        <span>{formatTimeTo12Hour(t.time)}</span>
                       </span>
                     </div>
 

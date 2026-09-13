@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import { LottiePlayer } from '../components/LottiePlayer';
 import { useApp } from '../context/AppContext';
-import { ref, get, update } from 'firebase/database';
+import { ref, get, update, onValue } from 'firebase/database';
 import { db } from '../lib/firebase';
 import { PK_COIN_ICON, EASYPAISA_LOGO, JAZZCASH_LOGO, SADAPAY_LOGO, NAYAPAY_LOGO, PK_LOGO_IMAGE } from '../lib/assets';
+import { DepositOffersModal, DepositOffer } from '../components/DepositOffersModal';
 import { playErrorSound, playDepositSuccessSound, playWithdrawSuccessSound } from '../lib/sound';
 import successConfetti from '../assets/success-confetti.json';
 import pendingClock from '../assets/pending-clock.json';
@@ -29,6 +30,39 @@ export function Wallet() {
   const [promoReward, setPromoReward] = useState(0);
   const [showDepositSuccessModal, setShowDepositSuccessModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState(0);
+  const [depositOffers, setDepositOffers] = useState<DepositOffer[]>([]);
+  const [depositOffersEnabled, setDepositOffersEnabled] = useState(false);
+  const [showDepositOffersModal, setShowDepositOffersModal] = useState(false);
+
+  // Listen to deposit offers & enabled toggle
+  useEffect(() => {
+    const offersRef = ref(db, 'depositOffers');
+    const unsubOffers = onValue(offersRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list: DepositOffer[] = Object.entries(data).map(([id, val]: [string, any]) => ({
+          id,
+          coins: Number(val.coins) || 0,
+          bonus: Number(val.bonus) || 0,
+          createdAt: val.createdAt || Date.now(),
+        }));
+        list.sort((a, b) => a.coins - b.coins);
+        setDepositOffers(list);
+      } else {
+        setDepositOffers([]);
+      }
+    });
+
+    const settingsRef = ref(db, 'appSettings/depositOffersEnabled');
+    const unsubSettings = onValue(settingsRef, (snapshot) => {
+      setDepositOffersEnabled(Boolean(snapshot.val()));
+    });
+
+    return () => {
+      unsubOffers();
+      unsubSettings();
+    };
+  }, []);
 
   // Success Confetti Lottie Data (Commonly used confetti)
   const [confettiData, setConfettiData] = useState<any>(null);
@@ -462,6 +496,31 @@ export function Wallet() {
             <ChevronRight className={`w-4 h-4 transition-transform ${activeTab === 'PROMO' ? 'rotate-90 text-black' : 'text-zinc-500'}`} />
           </div>
         </button>
+
+        {/* Deposit Offers Button - Auto hidden when toggle is OFF or no offers */}
+        {depositOffersEnabled && depositOffers.length > 0 && (
+          <button 
+            onClick={() => setShowDepositOffersModal(true)}
+            className="w-full mt-2 py-2.5 px-4 rounded-xl border flex items-center justify-between transition-all shadow-sm bg-gradient-to-r from-amber-500/10 via-yellow-500/15 to-amber-500/10 border-yellow-500/40 text-white hover:border-yellow-400 hover:shadow-[0_0_15px_rgba(234,179,8,0.2)] active:scale-[0.99] group"
+          >
+            <div className="flex items-center space-x-2.5">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 group-hover:scale-105 transition-transform shadow-[0_0_8px_rgba(234,179,8,0.2)]">
+                <Sparkles className="w-4 h-4 text-yellow-400" />
+              </div>
+              <div className="text-left">
+                <div className="text-xs font-black uppercase tracking-wider text-yellow-400">
+                  {t("Deposit Offers")}
+                </div>
+                <div className="text-[10px] text-zinc-400 font-medium">
+                  {t("Get extra bonus coins on deposits")}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-1">
+              <ChevronRight className="w-4 h-4 text-yellow-500 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 scrollbar-hide">
@@ -1222,6 +1281,18 @@ export function Wallet() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Deposit Offers Modal */}
+        <DepositOffersModal
+          isOpen={showDepositOffersModal}
+          onClose={() => setShowDepositOffersModal(false)}
+          offers={depositOffers}
+          onSelectOffer={(coins) => {
+            setActiveTab('DEPOSIT');
+            setAmount(coins.toString());
+            toast.success(`Selected offer: ${coins} Coins (+Bonus)`);
+          }}
+        />
       </div>
     </div>
   );
