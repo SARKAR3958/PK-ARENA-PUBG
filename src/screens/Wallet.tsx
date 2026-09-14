@@ -85,7 +85,7 @@ export function Wallet() {
     if (paymentSettings) {
       const cache: Record<string, string> = {};
       ['easypaisa', 'jazzcash', 'sadapay', 'nayapay'].forEach(key => {
-        const custom = paymentSettings[`${key}Logo`];
+        const custom = paymentSettings[`${key}DepositLogo`] || paymentSettings[`${key}Logo`];
         if (custom) cache[key] = custom;
       });
       try {
@@ -96,8 +96,10 @@ export function Wallet() {
     }
   }, [paymentSettings]);
 
-  const getLogo = (method: 'easypaisa' | 'jazzcash' | 'sadapay' | 'nayapay') => {
-    const custom = paymentSettings?.[`${method}Logo`];
+  const getLogo = (method: 'easypaisa' | 'jazzcash' | 'sadapay' | 'nayapay', isDeposit: boolean = true) => {
+    const depositKey = `${method}DepositLogo`;
+    const genericKey = `${method}Logo`;
+    const custom = (isDeposit && paymentSettings?.[depositKey]) ? paymentSettings[depositKey] : paymentSettings?.[genericKey];
     if (custom && custom.trim() !== '') {
       return custom;
     }
@@ -134,6 +136,19 @@ export function Wallet() {
         else if (paymentSettings?.withdrawSadapayEnabled) setPaymentMethod('sadapay');
         else if (paymentSettings?.withdrawNayapayEnabled) setPaymentMethod('nayapay');
       }
+    } else if (activeTab === 'DEPOSIT') {
+      const isDepositEnabled = 
+        (paymentMethod === 'easypaisa' && paymentSettings?.easypaisaEnabled !== false) ||
+        (paymentMethod === 'jazzcash' && paymentSettings?.jazzcashEnabled !== false) ||
+        (paymentMethod === 'sadapay' && paymentSettings?.sadapayDepositEnabled !== false) ||
+        (paymentMethod === 'nayapay' && paymentSettings?.nayapayDepositEnabled !== false);
+      
+      if (!isDepositEnabled) {
+        if (paymentSettings?.easypaisaEnabled !== false) setPaymentMethod('easypaisa');
+        else if (paymentSettings?.jazzcashEnabled !== false) setPaymentMethod('jazzcash');
+        else if (paymentSettings?.sadapayDepositEnabled !== false) setPaymentMethod('sadapay');
+        else if (paymentSettings?.nayapayDepositEnabled !== false) setPaymentMethod('nayapay');
+      }
     }
   }, [activeTab, paymentSettings, paymentMethod]);
 
@@ -158,17 +173,33 @@ export function Wallet() {
     }
     setIsSubmitting(true);
     try {
+      const getDepositMethodName = () => {
+        if (paymentMethod === 'easypaisa') return 'Easypaisa';
+        if (paymentMethod === 'jazzcash') return 'JazzCash';
+        if (paymentMethod === 'sadapay') return 'SadaPay';
+        if (paymentMethod === 'nayapay') return 'NayaPay';
+        return 'Payment';
+      };
+      const getDepositIconBg = () => {
+        if (paymentMethod === 'easypaisa') return 'bg-[#009144]';
+        if (paymentMethod === 'jazzcash') return 'bg-[#ED1C24]';
+        if (paymentMethod === 'sadapay') return 'bg-sky-500';
+        if (paymentMethod === 'nayapay') return 'bg-[#F7931E]';
+        return 'bg-yellow-500';
+      };
+
+      const methodName = getDepositMethodName();
       const newTx = {
         amount: Number(amount),
         type: 'deposit',
         status: 'pending',
-        method: paymentMethod === 'easypaisa' ? 'Easypaisa' : 'JazzCash',
+        method: methodName,
         date: new Date().toISOString(),
         screenshot: screenshotBase64,
         // old fields for backwards compatibility
-        m: paymentMethod === 'easypaisa' ? 'Easypaisa' : 'JazzCash',
+        m: methodName,
         coins: amount,
-        iconBg: paymentMethod === 'easypaisa' ? 'bg-[#009144]' : 'bg-[#ED1C24]',
+        iconBg: getDepositIconBg(),
         isWithdraw: false
       };
       await addTransaction(newTx);
@@ -537,11 +568,11 @@ export function Wallet() {
               {/* Payment Method */}
               <motion.div variants={item}>
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">{t("Choose Payment Method")}</h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-none snap-x touch-pan-x">
                   {paymentSettings?.easypaisaEnabled !== false && (
                     <button 
                       onClick={() => setPaymentMethod('easypaisa')}
-                      className={`relative p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${paymentMethod === 'easypaisa' ? 'bg-[#009144]/10 border-[#009144]' : 'bg-pk-card border-pk-border opacity-70'}`}
+                      className={`relative min-w-[135px] flex-1 shrink-0 p-3 rounded-xl border flex flex-col items-center justify-center transition-all snap-start ${paymentMethod === 'easypaisa' ? 'bg-[#009144]/10 border-[#009144]' : 'bg-pk-card border-pk-border opacity-70'}`}
                     >
                       <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
                         <img 
@@ -551,8 +582,8 @@ export function Wallet() {
                           onError={(e) => handleImgError(e, 'easypaisa')}
                         />
                       </div>
-                      <div className="font-bold text-[10px]">{paymentSettings?.easypaisaNumber || '03123456789'}</div>
-                      <div className="text-[9px] text-yellow-500">{paymentSettings?.easypaisaTitle || 'Easypaisa Admin'}</div>
+                      <div className="font-bold text-[10px] text-white truncate max-w-full">{paymentSettings?.easypaisaNumber || '03123456789'}</div>
+                      <div className="text-[9px] text-yellow-500 truncate max-w-full">{paymentSettings?.easypaisaTitle || 'Easypaisa Admin'}</div>
                       {paymentMethod === 'easypaisa' ? (
                         <div className="mt-2 w-full bg-[#009144] text-white text-[10px] py-1 rounded flex items-center justify-center">
                           {t("SELECTED")} <CheckCircle2 className="w-3 h-3 ml-1" />
@@ -567,7 +598,7 @@ export function Wallet() {
                   {paymentSettings?.jazzcashEnabled !== false && (
                     <button 
                       onClick={() => setPaymentMethod('jazzcash')}
-                      className={`relative p-3 rounded-xl border flex flex-col items-center justify-center transition-all ${paymentMethod === 'jazzcash' ? 'bg-[#ED1C24]/10 border-[#ED1C24]' : 'bg-pk-card border-pk-border opacity-70'}`}
+                      className={`relative min-w-[135px] flex-1 shrink-0 p-3 rounded-xl border flex flex-col items-center justify-center transition-all snap-start ${paymentMethod === 'jazzcash' ? 'bg-[#ED1C24]/10 border-[#ED1C24]' : 'bg-pk-card border-pk-border opacity-70'}`}
                     >
                       <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
                         <img 
@@ -577,10 +608,62 @@ export function Wallet() {
                           onError={(e) => handleImgError(e, 'jazzcash')}
                         />
                       </div>
-                      <div className="font-bold text-[10px]">{paymentSettings?.jazzcashNumber || '03213456789'}</div>
-                      <div className="text-[9px] text-yellow-500">{paymentSettings?.jazzcashTitle || 'JazzCash Admin'}</div>
+                      <div className="font-bold text-[10px] text-white truncate max-w-full">{paymentSettings?.jazzcashNumber || '03213456789'}</div>
+                      <div className="text-[9px] text-yellow-500 truncate max-w-full">{paymentSettings?.jazzcashTitle || 'JazzCash Admin'}</div>
                       {paymentMethod === 'jazzcash' ? (
                         <div className="mt-2 w-full bg-[#ED1C24] text-white text-[10px] py-1 rounded flex items-center justify-center">
+                          {t("SELECTED")} <CheckCircle2 className="w-3 h-3 ml-1" />
+                        </div>
+                      ) : (
+                        <div className="mt-2 w-full text-zinc-600 flex justify-end">
+                          <Circle className="w-4 h-4" />
+                        </div>
+                      )}
+                    </button>
+                  )}
+                  {(paymentSettings?.sadapayDepositEnabled !== undefined ? paymentSettings.sadapayDepositEnabled : true) && (
+                    <button 
+                      onClick={() => setPaymentMethod('sadapay')}
+                      className={`relative min-w-[135px] flex-1 shrink-0 p-3 rounded-xl border flex flex-col items-center justify-center transition-all snap-start cursor-pointer ${paymentMethod === 'sadapay' ? 'bg-sky-500/15 border-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)]' : 'bg-pk-card border-pk-border opacity-70 hover:opacity-100 hover:border-sky-400/60 hover:bg-sky-500/10'}`}
+                    >
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
+                        <img 
+                          src={getLogo('sadapay')} 
+                          alt="SadaPay" 
+                          className="w-full h-full object-contain" 
+                          onError={(e) => handleImgError(e, 'sadapay')}
+                        />
+                      </div>
+                      <div className="font-bold text-[10px] text-white truncate max-w-full">{paymentSettings?.sadapayDepositNumber || paymentSettings?.sadapayNumber || '03001234567'}</div>
+                      <div className="text-[9px] text-yellow-500 truncate max-w-full">{paymentSettings?.sadapayDepositTitle || paymentSettings?.sadapayTitle || 'SadaPay Admin'}</div>
+                      {paymentMethod === 'sadapay' ? (
+                        <div className="mt-2 w-full bg-sky-500 text-white text-[10px] py-1 rounded flex items-center justify-center font-bold">
+                          {t("SELECTED")} <CheckCircle2 className="w-3 h-3 ml-1" />
+                        </div>
+                      ) : (
+                        <div className="mt-2 w-full text-zinc-600 flex justify-end">
+                          <Circle className="w-4 h-4" />
+                        </div>
+                      )}
+                    </button>
+                  )}
+                  {(paymentSettings?.nayapayDepositEnabled !== undefined ? paymentSettings.nayapayDepositEnabled : true) && (
+                    <button 
+                      onClick={() => setPaymentMethod('nayapay')}
+                      className={`relative min-w-[135px] flex-1 shrink-0 p-3 rounded-xl border flex flex-col items-center justify-center transition-all snap-start ${paymentMethod === 'nayapay' ? 'bg-[#F7931E]/10 border-[#F7931E]' : 'bg-pk-card border-pk-border opacity-70'}`}
+                    >
+                      <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
+                        <img 
+                          src={getLogo('nayapay')} 
+                          alt="NayaPay" 
+                          className="w-full h-full object-contain" 
+                          onError={(e) => handleImgError(e, 'nayapay')}
+                        />
+                      </div>
+                      <div className="font-bold text-[10px] text-white truncate max-w-full">{paymentSettings?.nayapayDepositNumber || paymentSettings?.nayapayNumber || '03001234567'}</div>
+                      <div className="text-[9px] text-yellow-500 truncate max-w-full">{paymentSettings?.nayapayDepositTitle || paymentSettings?.nayapayTitle || 'NayaPay Admin'}</div>
+                      {paymentMethod === 'nayapay' ? (
+                        <div className="mt-2 w-full bg-[#F7931E] text-white text-[10px] py-1 rounded flex items-center justify-center">
                           {t("SELECTED")} <CheckCircle2 className="w-3 h-3 ml-1" />
                         </div>
                       ) : (
@@ -832,7 +915,7 @@ export function Wallet() {
                       <button 
                         type="button"
                         onClick={() => setPaymentMethod('sadapay')}
-                        className={`relative flex-shrink-0 min-w-[120px] w-[126px] p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${paymentMethod === 'sadapay' ? 'bg-sky-500/15 border-sky-400 text-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)]' : 'bg-pk-card border-pk-border opacity-70 hover:opacity-100'}`}
+                        className={`relative flex-shrink-0 min-w-[120px] w-[126px] p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${paymentMethod === 'sadapay' ? 'bg-sky-500/15 border-sky-400 text-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.25)]' : 'bg-pk-card border-pk-border opacity-70 hover:opacity-100 hover:border-sky-400/60 hover:bg-sky-500/10'}`}
                       >
                         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center overflow-hidden p-1 mb-1">
                           <img 

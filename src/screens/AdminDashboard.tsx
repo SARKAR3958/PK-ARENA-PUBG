@@ -1074,6 +1074,14 @@ export const AdminDashboard: React.FC = () => {
     jazzcashLogo: JAZZCASH_LOGO,
     jazzcashTitle: "ADMIN_J_ACCOUNT",
     jazzcashNumber: "03213456789",
+    sadapayDepositEnabled: true,
+    sadapayDepositLogo: SADAPAY_LOGO,
+    sadapayDepositTitle: "ADMIN_S_ACCOUNT",
+    sadapayDepositNumber: "03001234567",
+    nayapayDepositEnabled: true,
+    nayapayDepositLogo: NAYAPAY_LOGO,
+    nayapayDepositTitle: "ADMIN_N_ACCOUNT",
+    nayapayDepositNumber: "03001234567",
     withdrawalEnabled: true,
     withdrawEasypaisaEnabled: true,
     withdrawJazzcashEnabled: true,
@@ -1428,6 +1436,8 @@ export const AdminDashboard: React.FC = () => {
           ...data,
           easypaisaLogo: (!data.easypaisaLogo || data.easypaisaLogo.includes('ibb.co')) ? EASYPAISA_LOGO : data.easypaisaLogo,
           jazzcashLogo: (!data.jazzcashLogo || data.jazzcashLogo.includes('ibb.co')) ? JAZZCASH_LOGO : data.jazzcashLogo,
+          sadapayDepositLogo: (!data.sadapayDepositLogo || data.sadapayDepositLogo.includes('ibb.co')) ? (data.sadapayLogo || SADAPAY_LOGO) : data.sadapayDepositLogo,
+          nayapayDepositLogo: (!data.nayapayDepositLogo || data.nayapayDepositLogo.includes('ibb.co')) ? (data.nayapayLogo || NAYAPAY_LOGO) : data.nayapayDepositLogo,
           sadapayLogo: (!data.sadapayLogo || data.sadapayLogo.includes('ibb.co')) ? SADAPAY_LOGO : data.sadapayLogo,
           nayapayLogo: (!data.nayapayLogo || data.nayapayLogo.includes('ibb.co')) ? NAYAPAY_LOGO : data.nayapayLogo,
         }));
@@ -5122,6 +5132,170 @@ export const AdminDashboard: React.FC = () => {
                              </div>
                            </div>
                          </div>
+
+                         {/* SadaPay Deposit Settings */}
+                         <div className="bg-zinc-950 p-5 rounded-xl border border-zinc-800/50 space-y-4">
+                           <div className="flex items-center justify-between border-b border-zinc-800/50 pb-3">
+                             <div className="flex items-center space-x-3">
+                               <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                                 <img src={paymentSettings.sadapayDepositLogo || paymentSettings.sadapayLogo || SADAPAY_LOGO} alt="SadaPay" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                               </div>
+                               <div>
+                                 <h4 className="text-white font-bold text-sm">SadaPay Deposit</h4>
+                                 <span className="text-[10px] text-zinc-500 font-mono">Enable/disable and edit details</span>
+                               </div>
+                             </div>
+                             <label className="relative inline-flex items-center cursor-pointer">
+                               <input
+                                 type="checkbox"
+                                 checked={paymentSettings.sadapayDepositEnabled !== undefined ? paymentSettings.sadapayDepositEnabled : true}
+                                 onChange={async (e) => {
+                                   const newVal = e.target.checked;
+                                   setPaymentSettings(p => ({ ...p, sadapayDepositEnabled: newVal }));
+                                   await update(ref(db, 'paymentSettings'), { sadapayDepositEnabled: newVal });
+                                   toast.success(`SadaPay Deposit ${newVal ? 'Enabled' : 'Disabled'}`);
+                                 }}
+                                 className="sr-only peer"
+                               />
+                               <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
+                             </label>
+                           </div>
+
+                           <div className="space-y-3">
+                             <div>
+                               <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 font-sans">Account Title</label>
+                               <input
+                                 type="text"
+                                 value={paymentSettings.sadapayDepositTitle}
+                                 onChange={(e) => setPaymentSettings(p => ({ ...p, sadapayDepositTitle: e.target.value }))}
+                                 placeholder="ADMIN_S_ACCOUNT"
+                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
+                               />
+                             </div>
+                             <div>
+                               <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 font-sans">Account Number</label>
+                               <input
+                                 type="text"
+                                 value={paymentSettings.sadapayDepositNumber}
+                                 onChange={(e) => setPaymentSettings(p => ({ ...p, sadapayDepositNumber: e.target.value }))}
+                                 placeholder="03001234567"
+                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
+                               />
+                             </div>
+                             <div>
+                               <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 font-sans">Method Image (Logo URL)</label>
+                               <div className="flex gap-2">
+                                 <input
+                                   type="text"
+                                   value={paymentSettings.sadapayDepositLogo}
+                                   onChange={(e) => setPaymentSettings(p => ({ ...p, sadapayDepositLogo: e.target.value }))}
+                                   placeholder="Logo Image URL or upload"
+                                   className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
+                                 />
+                                 <input 
+                                   type="file" 
+                                   accept="image/*"
+                                   className="hidden" 
+                                   id="sadapay-deposit-logo-upload"
+                                   onChange={async (e) => {
+                                     if (e.target.files && e.target.files[0]) {
+                                       const url = await handleImageUpload(e.target.files[0]);
+                                       if (url) setPaymentSettings(p => ({ ...p, sadapayDepositLogo: url }));
+                                     }
+                                   }} 
+                                 />
+                                 <label 
+                                   htmlFor="sadapay-deposit-logo-upload" 
+                                   className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-yellow-500 font-bold text-xs uppercase cursor-pointer hover:bg-yellow-500 hover:text-black transition-all whitespace-nowrap ${isUploadingImg ? 'opacity-50 pointer-events-none' : ''}`}
+                                 >
+                                   {isUploadingImg ? <div className="w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" /> : <><ImageIcon className="w-3.5 h-3.5" /><span>Upload</span></>}
+                                 </label>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+
+                         {/* NayaPay Deposit Settings */}
+                         <div className="bg-zinc-950 p-5 rounded-xl border border-zinc-800/50 space-y-4">
+                           <div className="flex items-center justify-between border-b border-zinc-800/50 pb-3">
+                             <div className="flex items-center space-x-3">
+                               <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                                 <img src={paymentSettings.nayapayDepositLogo || paymentSettings.nayapayLogo || NAYAPAY_LOGO} alt="NayaPay" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                               </div>
+                               <div>
+                                 <h4 className="text-white font-bold text-sm">NayaPay Deposit</h4>
+                                 <span className="text-[10px] text-zinc-500 font-mono">Enable/disable and edit details</span>
+                               </div>
+                             </div>
+                             <label className="relative inline-flex items-center cursor-pointer">
+                               <input
+                                 type="checkbox"
+                                 checked={paymentSettings.nayapayDepositEnabled !== undefined ? paymentSettings.nayapayDepositEnabled : true}
+                                 onChange={async (e) => {
+                                   const newVal = e.target.checked;
+                                   setPaymentSettings(p => ({ ...p, nayapayDepositEnabled: newVal }));
+                                   await update(ref(db, 'paymentSettings'), { nayapayDepositEnabled: newVal });
+                                   toast.success(`NayaPay Deposit ${newVal ? 'Enabled' : 'Disabled'}`);
+                                 }}
+                                 className="sr-only peer"
+                               />
+                               <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
+                             </label>
+                           </div>
+
+                           <div className="space-y-3">
+                             <div>
+                               <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 font-sans">Account Title</label>
+                               <input
+                                 type="text"
+                                 value={paymentSettings.nayapayDepositTitle}
+                                 onChange={(e) => setPaymentSettings(p => ({ ...p, nayapayDepositTitle: e.target.value }))}
+                                 placeholder="ADMIN_N_ACCOUNT"
+                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
+                               />
+                             </div>
+                             <div>
+                               <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 font-sans">Account Number</label>
+                               <input
+                                 type="text"
+                                 value={paymentSettings.nayapayDepositNumber}
+                                 onChange={(e) => setPaymentSettings(p => ({ ...p, nayapayDepositNumber: e.target.value }))}
+                                 placeholder="03001234567"
+                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
+                               />
+                             </div>
+                             <div>
+                               <label className="block text-[10px] font-bold text-zinc-400 uppercase mb-1 font-sans">Method Image (Logo URL)</label>
+                               <div className="flex gap-2">
+                                 <input
+                                   type="text"
+                                   value={paymentSettings.nayapayDepositLogo}
+                                   onChange={(e) => setPaymentSettings(p => ({ ...p, nayapayDepositLogo: e.target.value }))}
+                                   placeholder="Logo Image URL or upload"
+                                   className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-500/50 font-mono"
+                                 />
+                                 <input 
+                                   type="file" 
+                                   accept="image/*"
+                                   className="hidden" 
+                                   id="nayapay-deposit-logo-upload"
+                                   onChange={async (e) => {
+                                     if (e.target.files && e.target.files[0]) {
+                                       const url = await handleImageUpload(e.target.files[0]);
+                                       if (url) setPaymentSettings(p => ({ ...p, nayapayDepositLogo: url }));
+                                     }
+                                   }} 
+                                 />
+                                 <label 
+                                   htmlFor="nayapay-deposit-logo-upload" 
+                                   className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-yellow-500 font-bold text-xs uppercase cursor-pointer hover:bg-yellow-500 hover:text-black transition-all whitespace-nowrap ${isUploadingImg ? 'opacity-50 pointer-events-none' : ''}`}
+                                 >
+                                   {isUploadingImg ? <div className="w-3.5 h-3.5 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" /> : <><ImageIcon className="w-3.5 h-3.5" /><span>Upload</span></>}
+                                 </label>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
                        </div>
 
                        <div className="flex justify-end pt-4 border-t border-zinc-800">
@@ -5135,6 +5309,14 @@ export const AdminDashboard: React.FC = () => {
                                  jazzcashTitle: paymentSettings.jazzcashTitle,
                                  jazzcashNumber: paymentSettings.jazzcashNumber,
                                  jazzcashLogo: paymentSettings.jazzcashLogo,
+                                 sadapayDepositTitle: paymentSettings.sadapayDepositTitle,
+                                 sadapayDepositNumber: paymentSettings.sadapayDepositNumber,
+                                 sadapayDepositLogo: paymentSettings.sadapayDepositLogo || SADAPAY_LOGO,
+                                 sadapayDepositEnabled: paymentSettings.sadapayDepositEnabled !== undefined ? paymentSettings.sadapayDepositEnabled : true,
+                                 nayapayDepositTitle: paymentSettings.nayapayDepositTitle,
+                                 nayapayDepositNumber: paymentSettings.nayapayDepositNumber,
+                                 nayapayDepositLogo: paymentSettings.nayapayDepositLogo || NAYAPAY_LOGO,
+                                 nayapayDepositEnabled: paymentSettings.nayapayDepositEnabled !== undefined ? paymentSettings.nayapayDepositEnabled : true,
                                });
                                toast.success("Deposit settings updated successfully!");
                              } catch (err) {

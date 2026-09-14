@@ -150,6 +150,15 @@ const sendScheduledPush = async (hour) => {
       }
     );
     
+    // Store in global in-app notifications (for user notification bell modal)
+    await axios.post(`${dbUrl}/notifications.json`, {
+      title: scheduledPush.title,
+      message: scheduledPush.message,
+      url: "",
+      type: "AUTO_BROADCAST",
+      createdAt: Date.now()
+    });
+
     await axios.post(`${dbUrl}/adminNotificationHistory.json`, {
       title: scheduledPush.title,
       message: scheduledPush.message,

@@ -1877,8 +1877,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   message: scheduledPush.message,
                   url: ""
                 }),
-              }).then(() => {
-                 push(ref(db, "adminNotificationHistory"), {
+              }).then(async () => {
+                 await push(ref(db, "notifications"), {
+                   title: scheduledPush.title,
+                   message: scheduledPush.message,
+                   url: "",
+                   type: "AUTO_BROADCAST",
+                   createdAt: Date.now()
+                 });
+                 await push(ref(db, "adminNotificationHistory"), {
                    title: scheduledPush.title,
                    message: scheduledPush.message,
                    type: "AUTO",

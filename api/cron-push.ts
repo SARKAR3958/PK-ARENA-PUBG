@@ -17,6 +17,16 @@ export default async function handler(req: any, res: any) {
     const dateString = dateFormatter.format(now);
     const hour = parseInt(hourFormatter.format(now), 10);
     
+    // Strict Scheduled Hours: 12 PM (12), 3 PM (15), 6 PM (18), 9 PM (21) PKT
+    const ALLOWED_HOURS = [12, 15, 18, 21];
+    if (!ALLOWED_HOURS.includes(hour)) {
+      return res.status(200).json({
+        success: false,
+        message: `Skipping: Current PKT hour (${hour}) is not in scheduled hours (12, 15, 18, 21 only).`,
+        currentHourPKT: hour
+      });
+    }
+
     const pushKey = `${dateString}-${hour}`;
     
     // Check if push already sent for this specific hour (prevents duplicate triggers)
@@ -86,6 +96,15 @@ export default async function handler(req: any, res: any) {
         },
       }
     );
+
+    // Store in global in-app notifications (for user notification bell modal)
+    await axios.post(`${dbUrl}/notifications.json`, {
+      title: scheduledPush.title,
+      message: scheduledPush.message,
+      url: "",
+      type: "AUTO_BROADCAST",
+      createdAt: Date.now()
+    });
 
     // Log to Firebase admin history
     await axios.post(`${dbUrl}/adminNotificationHistory.json`, {
