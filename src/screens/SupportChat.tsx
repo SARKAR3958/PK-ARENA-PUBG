@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import { SupportMessage, SupportChatRoom } from '../types';
 import toast from 'react-hot-toast';
-import { SUPPORT_ICON } from '../lib/assets';
+import { SUPPORT_ICON, PK_LOGO_IMAGE } from '../lib/assets';
 
 export function SupportChat() {
   const { currentUser, appSettings } = useApp();
@@ -128,6 +128,31 @@ export function SupportChat() {
         unreadCount: (roomInfo?.unreadCount || 0) + 1,
         lastMessageSenderId: currentUser.uid
       }, { merge: true });
+
+      // Auto reply from Admin Support on every message sent by user
+      const userUid = currentUser.uid;
+      const autoReplyText = "Admin Will Reply to your Msg As Soon As Possible !";
+      setTimeout(async () => {
+        try {
+          await addDoc(collection(firestore, COLLECTION_NAME, userUid, 'messages'), {
+            senderId: 'admin',
+            senderName: 'Admin Support',
+            senderAvatar: PK_LOGO_IMAGE,
+            text: autoReplyText,
+            imageUrl: '',
+            timestamp: serverTimestamp(),
+            isAdmin: true,
+            isRead: false
+          });
+
+          await setDoc(doc(firestore, COLLECTION_NAME, userUid), {
+            lastMessage: autoReplyText,
+            lastTimestamp: Date.now()
+          }, { merge: true });
+        } catch (autoErr) {
+          console.error('Error sending auto reply:', autoErr);
+        }
+      }, 400);
 
     } catch (err) {
       console.error('Error sending message:', err);
